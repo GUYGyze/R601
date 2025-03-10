@@ -5,3 +5,6 @@
   sudo nft add chain inet filter output { type filter hook output priority 0 \; policy accept \; }
 -Créer la règle pour que le ping puisse passer 
   sudo nft add rule inet filter input ip protocol icmp accept 
+-Pour sauvegarder cette configuration dans un fichier, vous pouvez utiliser la commande suivante :
+  sudo nft list ruleset > /etc/nftables.conf
+  Cela enregistre votre configuration dans le fichier /etc/nftables.conf, et vous pouvez vous assurer que nftables charge cette configuration au démarrage.
