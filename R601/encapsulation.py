@@ -52,3 +52,14 @@ def send_icmp_packet(dest_ip, udp_data):
 
     with socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_ICMP) as s:
         s.sendto(packet, (dest_ip, 1))
+
+# udp_payload = input("Quel message voulez-vous envoyer ?").encode()
+# psource = int(input("Veuillez entrer un port source"))
+# pdest = int(input("Veuillez entrer un port de destination"))
+# ipdest = str(input("Veuillez entrer une IP de destination"))
+udp_payload = b'Salutations'
+psource = 1234
+pdest = 5678
+ipdest = "172.21.1.43"
+udp_packet = create_udp_packet(psource, pdest, udp_payload)
+send_icmp_packet(ipdest, udp_packet)
