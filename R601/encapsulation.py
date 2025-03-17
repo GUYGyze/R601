@@ -45,21 +45,32 @@ def create_icmp_packet(udp_data):
 
     return header + payload
 
+### Test pour envoi d'ICMP
+# def send_icmp_packet(dest_ip, udp_data):
+#     ### Envoi du paquet ICMP
+#     packet = create_icmp_packet(udp_data)
 
+#     with socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_ICMP) as s:
+#         s.sendto(packet, (dest_ip, 1))
+
+### Test pour envoi d'UDP
 def send_icmp_packet(dest_ip, udp_data):
     ### Envoi du paquet ICMP
     packet = create_icmp_packet(udp_data)
 
-    with socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_ICMP) as s:
-        s.sendto(packet, (dest_ip, 1))
+    with socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.SOL_UDP) as s:
+        s.sendto(udp_data, (dest_ip, 1))
 
+### Avec demande user
 # udp_payload = input("Quel message voulez-vous envoyer ?").encode()
 # psource = int(input("Veuillez entrer un port source"))
 # pdest = int(input("Veuillez entrer un port de destination"))
 # ipdest = str(input("Veuillez entrer une IP de destination"))
+
+### Sans demande
 udp_payload = b'Salutations'
 psource = 1234
 pdest = 5678
-ipdest = "172.21.1.43"
+ipdest = "172.21.1.44"
 udp_packet = create_udp_packet(psource, pdest, udp_payload)
 send_icmp_packet(ipdest, udp_packet)
