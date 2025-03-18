@@ -56,7 +56,7 @@ EOF
 
 # Création du fichier docker-compose.yml
 cd /home/adminetu/docker_SAE/
-cat > docker_compose.yml << 'EOF'
+cat > docker-compose.yml << 'EOF'
 version: '3'
 
 services:
