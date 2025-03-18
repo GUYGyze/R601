@@ -1,35 +1,515 @@
 #!/bin/bash
 
+# Dossier courant
+cd /home/adminetu/
+
+# Création de Venv
+mkdir docker_venv/
+python3 -m venv docker_venv/bin/activate
+
 # Installation de Docker
-apt-get update
-apt-get install -y apt-transport-https ca-certificates curl gnupg lsb-release
-curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
-apt-get update
-apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose
+sudo apt update
+sudo apt upgrade -y
+sudo apt install -y apt-transport-https ca-certificates curl gnupg lsb-release
+curl -fsSL https://download.docker.com/linux/debian/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+sudo apt update
+sudo apt install -y docker-ce docker-ce-cli containerd.io
+sudo systemctl enable docker
+sudo usermod -aG docker $USER
+sudo apt install -y docker-compose
 
-# Création de la structure de répertoires
-mkdir -p ~/docker_SAE/app/templates
-mkdir -p ~/docker_SAE/config
-mkdir -p ~/docker_SAE/client_configs
+#####################
 
-# Copie des fichiers de configuration
-cat > ~/docker_SAE/docker-compose.yml << 'EOF'
+# Création de l'arborescence
+mkdir -p /home/adminetu/docker_SAE/app
+mkdir -p /home/adminetu/docker_SAE/config
+mkdir -p /home/adminetu/docker_SAE/client_configs
+
+##############################"
+
+# Création des requirements
+cd /home/adminetu/docker_SAE/app
+cat > requirements.txt << 'EOF'
+flask==2.2.3
+jinja2==3.1.2
+EOF
+
+########################################
+
+#Création du fichier Dockerfile
+cd /home/adminetu/docker_SAE/
+cat > Dockerfile << 'EOF'
+FROM python:3.10-slim
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+
+CMD ["python", "app.py"]
+EOF
+
+#############################
+
+# Création du fichier docker-compose.yml
+cd /home/adminetu/docker_SAE/
+cat > docker_compose.yml << 'EOF'
 version: '3'
+
 services:
   wireguard:
     image: linuxserver/wireguard
-    # ... le reste de votre fichier docker-compose.yml
+    container_name: wireguard
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Paris
+      - SERVERURL=auto
+      - SERVERPORT=51820
+      - PEERS=1
+      - PEERDNS=auto
+      - INTERNAL_SUBNET=10.0.0.0/24
+    volumes:
+      - ./config:/config
+      - /lib/modules:/lib/modules
+    ports:
+      - "51820:51820/udp"
+    restart: unless-stopped
+    sysctls:
+      - net.ipv4.conf.all.src_valid_mark=1
+    
+  web-interface:
+    image: python:3.10-slim
+    container_name: wireguard-web
+    volumes:
+      - ./app:/app
+      - ./config:/config:ro
+      - ./client_configs:/app/client_configs
+    working_dir: /app
+    command: bash -c "pip install flask jinja2 && python app.py"
+    ports:
+      - "8080:5000"
+    restart: unless-stopped
+    depends_on:
+      - wireguard
 EOF
 
-cat > ~/docker_SAE/app/app.py << 'EOF'
-# ... le contenu de votre app.py
+#############################
+
+# Création du fichier app.py
+cd /home/adminetu/docker_SAE/app/
+cat > app.py << 'EOF'
+#!/usr/bin/env python3
+import os
+import subprocess
+import jinja2
+import json
+from flask import Flask, render_template, request, jsonify
+
+app = Flask(__name__)
+
+# Configuration
+WG_CONFIG_DIR = "/etc/wireguard"
+WG_INTERFACE = "wg0"
+SERVER_IP = "10.0.0.1/24"
+SERVER_PORT = 51820
+CLIENT_BASE_IP = "10.0.0."
+
+# Modèle Jinja2 pour la configuration du serveur
+SERVER_CONFIG_TEMPLATE = """
+[Interface]
+PrivateKey = {{ server_private_key }}
+Address = {{ server_ip }}
+ListenPort = {{ server_port }}
+SaveConfig = true
+
+{% for client in clients %}
+[Peer]
+PublicKey = {{ client.public_key }}
+AllowedIPs = {{ client.ip }}/32
+{% endfor %}
+"""
+
+# Modèle Jinja2 pour la configuration du client
+CLIENT_CONFIG_TEMPLATE = """
+[Interface]
+PrivateKey = {{ client_private_key }}
+Address = {{ client_ip }}/24
+DNS = 8.8.8.8, 1.1.1.1
+
+[Peer]
+PublicKey = {{ server_public_key }}
+Endpoint = {{ server_endpoint }}:{{ server_port }}
+AllowedIPs = 0.0.0.0/0
+PersistentKeepalive = 25
+"""
+
+def generate_keys():
+    """Génère une paire de clés WireGuard"""
+    private_key = subprocess.check_output("wg genkey", shell=True).decode('utf-8').strip()
+    public_key = subprocess.check_output(f"echo '{private_key}' | wg pubkey", shell=True).decode('utf-8').strip()
+    return private_key, public_key
+
+def get_wireguard_status():
+    """Récupère l'état du tunnel WireGuard"""
+    try:
+        status = subprocess.check_output(f"wg show {WG_INTERFACE}", shell=True).decode('utf-8')
+        return status
+    except subprocess.CalledProcessError:
+        return "Interface WireGuard non active"
+
+def save_client_config(client_name, client_config):
+    """Sauvegarde la configuration du client"""
+    os.makedirs("client_configs", exist_ok=True)
+    with open(f"client_configs/{client_name}.conf", "w") as f:
+        f.write(client_config)
+
+def load_clients():
+    """Charge la liste des clients depuis le fichier"""
+    try:
+        with open("clients.json", "r") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return []
+
+def save_clients(clients):
+    """Sauvegarde la liste des clients dans un fichier"""
+    with open("clients.json", "w") as f:
+        json.dump(clients, f, indent=2)
+
+@app.route('/')
+def index():
+    """Page principale"""
+    status = get_wireguard_status()
+    clients = load_clients()
+    return render_template('index.html', status=status, clients=clients)
+
+@app.route('/api/status')
+def api_status():
+    """API pour récupérer l'état du tunnel"""
+    status = get_wireguard_status()
+    return jsonify({"status": status})
+
+@app.route('/api/create_client', methods=['POST'])
+def create_client():
+    """API pour créer un nouveau client"""
+    client_name = request.form.get('client_name')
+    
+    # Charger les clients existants
+    clients = load_clients()
+    
+    # Vérifier si le client existe déjà
+    for client in clients:
+        if client['name'] == client_name:
+            return jsonify({"error": "Ce nom de client existe déjà"}), 400
+    
+    # Générer les clés pour le client
+    client_private_key, client_public_key = generate_keys()
+    
+    # Attribuer une IP au client
+    client_id = len(clients) + 2  # Commencer à 2 car le serveur est 1
+    client_ip = f"{CLIENT_BASE_IP}{client_id}"
+    
+    # Créer l'objet client
+    client = {
+        "name": client_name,
+        "public_key": client_public_key,
+        "private_key": client_private_key,
+        "ip": client_ip
+    }
+    
+    # Ajouter le client à la liste
+    clients.append(client)
+    
+    # Sauvegarder la liste des clients
+    save_clients(clients)
+    
+    # Générer la configuration du client
+    server_public_key = subprocess.check_output("cat server_publickey", shell=True).decode('utf-8').strip()
+    server_endpoint = request.form.get('server_endpoint', request.host.split(':')[0])
+    
+    template = jinja2.Template(CLIENT_CONFIG_TEMPLATE)
+    client_config = template.render(
+        client_private_key=client_private_key,
+        client_ip=client_ip,
+        server_public_key=server_public_key,
+        server_endpoint=server_endpoint,
+        server_port=SERVER_PORT
+    )
+    
+    # Sauvegarder la configuration du client
+    save_client_config(client_name, client_config)
+    
+    # Mettre à jour la configuration du serveur
+    update_server_config(clients)
+    
+    # Redémarrer le service WireGuard
+    subprocess.run(f"systemctl restart wg-quick@{WG_INTERFACE}", shell=True)
+    
+    return jsonify({
+        "success": True,
+        "client": {
+            "name": client_name,
+            "config": client_config
+        }
+    })
+
+def update_server_config(clients):
+    """Met à jour la configuration du serveur"""
+    # Lire la clé privée du serveur
+    server_private_key = ""
+    try:
+        with open("server_privatekey", "r") as f:
+            server_private_key = f.read().strip()
+    except FileNotFoundError:
+        # Générer une nouvelle paire de clés pour le serveur
+        server_private_key, server_public_key = generate_keys()
+        with open("server_privatekey", "w") as f:
+            f.write(server_private_key)
+        with open("server_publickey", "w") as f:
+            f.write(server_public_key)
+    
+    # Générer la configuration du serveur
+    template = jinja2.Template(SERVER_CONFIG_TEMPLATE)
+    server_config = template.render(
+        server_private_key=server_private_key,
+        server_ip=SERVER_IP,
+        server_port=SERVER_PORT,
+        clients=clients
+    )
+    
+    # Sauvegarder la configuration du serveur
+    with open(f"{WG_CONFIG_DIR}/{WG_INTERFACE}.conf", "w") as f:
+        f.write(server_config)
+
+@app.route('/api/toggle_wireguard', methods=['POST'])
+def toggle_wireguard():
+    """API pour activer/désactiver le tunnel WireGuard"""
+    action = request.form.get('action', 'up')
+    
+    if action not in ['up', 'down']:
+        return jsonify({"error": "Action invalide"}), 400
+    
+    try:
+        subprocess.run(f"wg-quick {action} {WG_INTERFACE}", shell=True, check=True)
+        return jsonify({"success": True, "status": get_wireguard_status()})
+    except subprocess.CalledProcessError as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/download_config/<client_name>')
+def download_config(client_name):
+    """API pour télécharger la configuration d'un client"""
+    try:
+        with open(f"client_configs/{client_name}.conf", "r") as f:
+            config = f.read()
+        return config, 200, {'Content-Type': 'text/plain', 'Content-Disposition': f'attachment; filename="{client_name}.conf"'}
+    except FileNotFoundError:
+        return jsonify({"error": "Configuration non trouvée"}), 404
+
+if __name__ == '__main__':
+    # Créer les fichiers de clés du serveur s'ils n'existent pas
+    if not os.path.exists("server_privatekey") or not os.path.exists("server_publickey"):
+        server_private_key, server_public_key = generate_keys()
+        with open("server_privatekey", "w") as f:
+            f.write(server_private_key)
+        with open("server_publickey", "w") as f:
+            f.write(server_public_key)
+    
+    # Créer le dossier de configuration si nécessaire
+    os.makedirs(WG_CONFIG_DIR, exist_ok=True)
+    
+    # Mettre à jour la configuration du serveur
+    update_server_config(load_clients())
+    
+    app.run(host='0.0.0.0', port=5000, debug=True)
 EOF
 
-cat > ~/docker_SAE/app/templates/index.html << 'EOF'
-# ... le contenu de votre template HTML
+############################
+
+#Création de la page web
+mkdir /home/adminetu/docker_SAE/app/templates
+cd /home/adminetu/docker_SAE/app/templates
+cat > index.html << 'EOF'
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestionnaire WireGuard</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .status {
+            font-family: monospace;
+            white-space: pre;
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button.red {
+            background-color: #f44336;
+        }
+        input[type=text] {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 300px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        table, th, td {
+            border: 1px solid #ddd;
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+    </style>
+</head>
+<body>
+    <h1>Gestionnaire de Tunnel WireGuard</h1>
+
+    <div class="card">
+        <h2>État du Tunnel</h2>
+        <div class="status" id="status">{{ status }}</div>
+        <div style="margin-top: 15px;">
+            <button onclick="toggleWireguard('up')">Activer le tunnel</button>
+            <button class="red" onclick="toggleWireguard('down')">Désactiver le tunnel</button>
+            <button onclick="refreshStatus()">Actualiser</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Ajouter un client</h2>
+        <div>
+            <input type="text" id="client_name" placeholder="Nom du client">
+            <input type="text" id="server_endpoint" placeholder="Adresse IP ou domaine du serveur">
+            <button onclick="createClient()">Créer un client</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Clients existants</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Nom</th>
+                    <th>IP</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="clients_table">
+                {% for client in clients %}
+                <tr>
+                    <td>{{ client.name }}</td>
+                    <td>{{ client.ip }}</td>
+                    <td>
+                        <button onclick="downloadConfig('{{ client.name }}')">Télécharger la configuration</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        function refreshStatus() {
+            fetch('/api/status')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('status').textContent = data.status;
+                });
+        }
+
+        function toggleWireguard(action) {
+            const formData = new FormData();
+            formData.append('action', action);
+
+            fetch('/api/toggle_wireguard', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById('status').textContent = data.status;
+                } else {
+                    alert('Erreur: ' + data.error);
+                }
+            });
+        }
+
+        function createClient() {
+            const clientName = document.getElementById('client_name').value;
+            const serverEndpoint = document.getElementById('server_endpoint').value;
+            
+            if (!clientName) {
+                alert('Veuillez entrer un nom de client');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('client_name', clientName);
+            formData.append('server_endpoint', serverEndpoint);
+
+            fetch('/api/create_client', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Client créé avec succès');
+                    location.reload();
+                } else {
+                    alert('Erreur: ' + data.error);
+                }
+            });
+        }
+
+        function downloadConfig(clientName) {
+            window.location.href = '/api/download_config/' + clientName;
+        }
+
+        // Rafraîchir le statut toutes les 30 secondes
+        setInterval(refreshStatus, 30000);
+    </script>
+</body>
+</html>
 EOF
 
-# Lancement des conteneurs
-cd ~/docker_SAE
+###############
+
+cd /home/adminetu/docker_SAE/
 docker-compose up -d
