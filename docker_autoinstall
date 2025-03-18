@@ -1,0 +1,35 @@
+#!/bin/bash
+
+# Installation de Docker
+apt-get update
+apt-get install -y apt-transport-https ca-certificates curl gnupg lsb-release
+curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+apt-get update
+apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose
+
+# Création de la structure de répertoires
+mkdir -p ~/docker_SAE/app/templates
+mkdir -p ~/docker_SAE/config
+mkdir -p ~/docker_SAE/client_configs
+
+# Copie des fichiers de configuration
+cat > ~/docker_SAE/docker-compose.yml << 'EOF'
+version: '3'
+services:
+  wireguard:
+    image: linuxserver/wireguard
+    # ... le reste de votre fichier docker-compose.yml
+EOF
+
+cat > ~/docker_SAE/app/app.py << 'EOF'
+# ... le contenu de votre app.py
+EOF
+
+cat > ~/docker_SAE/app/templates/index.html << 'EOF'
+# ... le contenu de votre template HTML
+EOF
+
+# Lancement des conteneurs
+cd ~/docker_SAE
+docker-compose up -d
