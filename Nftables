@@ -8,3 +8,6 @@
 -Pour sauvegarder cette configuration dans un fichier, vous pouvez utiliser la commande suivante :
   sudo nft list ruleset > /etc/nftables.conf
   Cela enregistre votre configuration dans le fichier /etc/nftables.conf, et vous pouvez vous assurer que nftables charge cette configuration au démarrage.
+
+-Vider la table de règles nftables 
+  sudo nft flush ruleset
