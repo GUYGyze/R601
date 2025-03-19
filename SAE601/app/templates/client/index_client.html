@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestionnaire Client WireGuard</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .status {
+            font-family: monospace;
+            white-space: pre;
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        button.red {
+            background-color: #f44336;
+        }
+        button.blue {
+            background-color: #2196F3;
+        }
+        button.orange {
+            background-color: #FF9800;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            color: #666666;
+            cursor: not-allowed;
+        }
+        input[type=text], input[type=number], input[type=email] {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 300px;
+            margin-bottom: 10px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        table, th, td {
+            border: 1px solid #ddd;
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        .tabs {
+            display: flex;
+            margin-bottom: 15px;
+        }
+        .tab {
+            padding: 10px 15px;
+            cursor: pointer;
+            border: 1px solid #ddd;
+            border-bottom: none;
+            border-radius: 4px 4px 0 0;
+            background-color: #f5f5f5;
+        }
+        .tab.active {
+            background-color: white;
+            border-bottom: 1px solid white;
+            margin-bottom: -1px;
+        }
+        .tab-content {
+            border: 1px solid #ddd;
+            padding: 15px;
+            border-radius: 0 4px 4px 4px;
+        }
+        .tab-pane {
+            display: none;
+        }
+        .tab-pane.active {
+            display: block;
+        }
+        .badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            color: white;
+            margin-left: 10px;
+        }
+        .badge-success {
+            background-color: #4CAF50;
+        }
+        .badge-warning {
+            background-color: #FF9800;
+        }
+        .badge-danger {
+            background-color: #f44336;
+        }
+        .button-group {
+            display: flex;
+            margin-bottom: 10px;
+        }
+        .button-divider {
+            width: 100%;
+            height: 1px;
+            background-color: #ddd;
+            margin: 8px 0;
+        }
+        .tunnel-controls {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+        .tunnel-controls.enabled {
+            opacity: 1;
+            pointer-events: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Gestionnaire Client WireGuard</h1>
+
+    <div class="card">
+        <h2>Configuration du Tunnel WireGuard</h2>
+        
+        <div class="tabs">
+            <div class="tab active" onclick="showTab('client-config')">Configuration Client</div>
+            <div class="tab" onclick="showTab('server-config')">Configuration Serveur</div>
+        </div>
+        
+        <div class="tab-content">
+            <div class="tab-pane active" id="client-config">
+                <h3>Configuration du Client</h3>
+                <div class="form-group">
+                    <label for="client_name">Nom du client</label>
+                    <input type="text" id="client_name" placeholder="Nom du client">
+                </div>
+                <div class="form-group">
+                    <label for="client_ip">Adresse IP du client (avec masque CIDR)</label>
+                    <input type="text" id="client_ip" placeholder="10.0.0.2/24">
+                </div>
+                <div class="form-group">
+                    <label for="server_endpoint">Adresse IP ou domaine du serveur</label>
+                    <input type="text" id="server_endpoint" placeholder="example.com ou 123.456.789.0">
+                </div>
+                <div class="form-group">
+                    <label for="client_server_port">Port du serveur</label>
+                    <input type="number" id="client_server_port" placeholder="51820" min="1" max="65535">
+                </div>
+                <div class="form-group">
+                    <button onclick="generateClientKeys()">Générer des clés</button>
+                    <button onclick="createClient()">Créer la configuration</button>
+                </div>
+                <div class="form-group">
+                    <label>Clé publique du client:</label>
+                    <div class="status" id="client_public_key">-</div>
+                </div>
+                <div class="form-group">
+                    <label>Clé privée du client:</label>
+                    <div class="status" id="client_private_key">-</div>
+                </div>
+            </div>
+            
+            <div class="tab-pane" id="server-config">
+                <h3>Configuration du Serveur</h3>
+                <div class="form-group">
+                    <label for="server_ip">Adresse IP du serveur (avec masque CIDR)</label>
+                    <input type="text" id="server_ip" placeholder="10.0.0.1/24">
+                </div>
+                <div class="form-group">
+                    <label for="server_port">Port d'écoute</label>
+                    <input type="number" id="server_port" placeholder="51820" min="1" max="65535">
+                </div>
+                <div class="form-group">
+                    <label for="server_interface">Interface réseau</label>
+                    <input type="text" id="server_interface" placeholder="eth0">
+                </div>
+                <div class="form-group">
+                    <label for="server_public_key">Clé publique du serveur</label>
+                    <input type="text" id="server_public_key" placeholder="Collez la clé publique du serveur ici">
+                </div>
+                <div class="form-group">
+                    <button onclick="createServerConfig()">Créer la configuration</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Serveur</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Nom</th>
+                    <th>IP</th>
+                    <th>Statut</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="servers_table">
+                {% for server in servers %}
+                <tr data-server-name="{{ server.name }}" data-server-status="{{ server.status }}" data-key-sent="{{ server.key_sent|default('false') }}">
+                    <td>{{ server.name }}</td>
+                    <td>{{ server.ip }}</td>
+                    <td>
+                        <span class="server-status">
+                            {% if server.status == 'active' %}
+                                <span class="badge badge-success">Actif</span>
+                            {% elif server.status == 'inactive' %}
+                                <span class="badge badge-danger">Inactif</span>
+                            {% elif server.status == 'pending' %}
+                                <span class="badge badge-warning">En attente</span>
+                            {% endif %}
+                        </span>
+                    </td>
+                    <td>
+                        <div class="button-group">
+                            <button class="blue send-key-button" onclick="sendPublicKey('{{ server.name }}')" 
+                                {% if server.key_sent|default(false) %}disabled{% endif %}>
+                                Envoyer la clé publique
+                            </button>
+                        </div>
+                        
+                        <div class="button-group">
+                            <button onclick="refreshServerStatus('{{ server.name }}')">Actualiser</button>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        function showTab(tabId) {
+            // Masquer tous les panneaux
+            const panes = document.querySelectorAll('.tab-pane');
+            panes.forEach(pane => pane.classList.remove('active'));
+            
+            // Désactiver tous les onglets
+            const tabs = document.querySelectorAll('.tab');
+            tabs.forEach(tab => tab.classList.remove('active'));
+            
+            // Activer l'onglet et le panneau sélectionnés
+            document.getElementById(tabId).classList.add('active');
+            document.querySelector(`.tab[onclick="showTab('${tabId}')"]`).classList.add('active');
+        }
+
+        function refreshStatus() {
+            fetch('/api/status')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('status').textContent = data.status;
+                });
+        }
+
+        function generateClientKeys() {
+            fetch('/api/generate_keys')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        document.getElementById('client_public_key').textContent = data.public_key;
+                        document.getElementById('client_private_key').textContent = data.private_key;
+                    } else {
+                        alert('Erreur: ' + data.error);
+                    }
+                });
+        }
+
+        function createServerConfig() {
+            const serverIp = document.getElementById('server_ip').value;
+            const serverPort = document.getElementById('server_port').value;
+            const serverInterface = document.getElementById('server_interface').value;
+            const serverPublicKey = document.getElementById('server_public_key').value;
+            
+            if (!serverIp || !serverPort || !serverInterface || !serverPublicKey) {
+                alert('Veuillez remplir tous les champs');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('server_ip', serverIp);
+            formData.append('server_port', serverPort);
+            formData.append('server_interface', serverInterface);
+            formData.append('server_public_key', serverPublicKey);
+
+            fetch('/api/create_server_config', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Configuration du serveur créée avec succès');
+                    refreshStatus();
+                } else {
+                    alert('Erreur: ' + data.error);
+                }
+            });
+        }
+
+        function createClient() {
+            const clientName = document.getElementById('client_name').value;
+            const clientIp = document.getElementById('client_ip').value;
+            const serverEndpoint = document.getElementById('server_endpoint').value;
+            const serverPort = document.getElementById('client_server_port').value;
+            const privateKey = document.getElementById('client_private_key').textContent;
+            const publicKey = document.getElementById('client_public_key').textContent;
+            
+            if (!clientName || !clientIp || !serverEndpoint || !serverPort || privateKey === '-' || publicKey === '-') {
+                alert('Veuillez remplir tous les champs et générer des clés');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('client_name', clientName);
+            formData.append('client_ip', clientIp);
+            formData.append('server_endpoint', serverEndpoint);
+            formData.append('server_port', serverPort);
+            formData.append('private_key', privateKey);
+            formData.append('public_key', publicKey);
+
+            fetch('/api/create_client_config', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Configuration client créée avec succès');
+                    location.reload();
+                } else {
+                    alert('Erreur: ' + data.error);
+                }
+            });
+        }
+
+        function sendPublicKey(serverName) {
+            if (confirm('Êtes-vous sûr de vouloir envoyer la clé publique au serveur ' + serverName + ' ?')) {
+                const formData = new FormData();
+                formData.append('server_name', serverName);
+                
+                fetch('/api/send_public_key', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('Clé publique envoyée avec succès');
+                        // Marquer la clé comme envoyée
+                        markKeyAsSent(serverName);
+                        // Mettre à jour le statut du serveur
+                        updateServerStatus(serverName, 'pending');
+                    } else {
+                        alert('Erreur: ' + data.error);
+                    }
+                });
+            }
+        }
+
+        function markKeyAsSent(serverName) {
+            const serverRow = document.querySelector(`tr[data-server-name="${serverName}"]`);
+            if (serverRow) {
+                // Mettre à jour l'attribut data-key-sent
+                serverRow.dataset.keySent = 'true';
+                
+                // Désactiver le bouton d'envoi de clé
+                const sendKeyButton = serverRow.querySelector('.send-key-button');
+                if (sendKeyButton) {
+                    sendKeyButton.disabled = true;
+                }
+            }
+        }
+
+        function refreshServerStatus(serverName) {
+            fetch('/api/server_status/' + serverName)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        updateServerStatus(serverName, data.status);
+                    } else {
+                        alert('Erreur: ' + data.error);
+                    }
+                });
+        }
+
+        function updateServerStatus(serverName, status) {
+            const serverRow = document.querySelector(`tr[data-server-name="${serverName}"]`);
+            if (serverRow) {
+                // Mettre à jour l'attribut data-status
+                serverRow.dataset.serverStatus = status;
+                
+                // Mettre à jour le badge de statut
+                const statusCell = serverRow.querySelector('.server-status');
+                let badgeHtml = '';
+                
+                if (status === 'active') {
+                    badgeHtml = '<span class="badge badge-success">Actif</span>';
+                } else if (status === 'inactive') {
+                    badgeHtml = '<span class="badge badge-danger">Inactif</span>';
+                } else if (status === 'pending') {
+                    badgeHtml = '<span class="badge badge-warning">En attente</span>';
+                }
+                
+                statusCell.innerHTML = badgeHtml;
+            }
+        }
+    </script>
+</body>
+</html>
