@@ -1,0 +1,11 @@
+[Interface]
+Address = 10.0.0.1/24
+SaveConfig = true
+ListenPort = 51820
+PrivateKey = 2KIplu7TT7DyUfJMvTQ4U0vxejTqwnTX3irsoovngF0=
+
+[Peer]
+PublicKey = MDjRMid/Hwbk0jy7G5fKfstOjBkQtqc53TGqiPcGZGI=
+AllowedIPs = 10.0.0.2/32
+Endpoint = 172.21.1.3:51820
+
