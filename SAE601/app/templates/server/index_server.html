@@ -162,7 +162,7 @@
                 </div>
                 <div class="form-group">
                     <label for="server_port">Port d'écoute</label>
-                    <input type="number" id="server_port" placeholder="51820" min="1" max="65535">
+                    <input type="number" id="server_listen_port" placeholder="51820" min="1" max="65535">
                 </div>
                 <div class="form-group">
                     <label for="server_interface">Interface réseau</label>
@@ -193,8 +193,8 @@
                     <input type="text" id="client_ip" placeholder="10.0.0.2/24">
                 </div>
                 <div class="form-group">
-                    <label for="client_server_port">Port du serveur</label>
-                    <input type="number" id="client_server_port" placeholder="51820" min="1" max="65535">
+                    <label for="client_server_port">Port du Client</label>
+                    <input type="number" id="client_port" placeholder="51820" min="1" max="65535">
                 </div>
                 
                 
@@ -293,19 +293,6 @@
                 });
         }
 
-        function generateClientKeys() {
-            fetch('/api/generate_keys')
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        document.getElementById('client_public_key').textContent = data.public_key;
-                        document.getElementById('client_private_key').textContent = data.private_key;
-                    } else {
-                        alert('Erreur: ' + data.error);
-                    }
-                });
-        }
-
         function createServerConfig() {
             const serverIp = document.getElementById('server_ip').value;
             const serverPort = document.getElementById('server_port').value;
@@ -321,7 +308,7 @@
             formData.append('server_ip', serverIp);
             formData.append('server_port', serverPort);
             formData.append('server_interface', serverInterface);
-            formData.append('private_key', privateKey);
+            formData.append('server_private_key', privateKey);
 
             fetch('/api/create_server_config', {
                 method: 'POST',
