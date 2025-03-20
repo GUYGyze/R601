@@ -96,13 +96,13 @@ def api_create_client_config():
         # Récupération des données du formulaire
         client_name = request.form.get('client_name')
         client_ip = request.form.get('client_ip')
-        server_endpoint = request.form.get('server_endpoint')
+        server_endpoint = request.form.get('server_ip')
         server_port = request.form.get('server_port')
-        private_key = request.form.get('private_key')
-        public_key = request.form.get('public_key')
+        private_key = request.form.get('client_private_key')
+        public_key = request.form.get('client_public_key')
 
         # Vérifier que toutes les données sont bien fournies
-        if not all([client_name, client_ip, server_endpoint, server_port, private_key, public_key]):
+        if not all([client_name, client_ip, listen_port, server_port, server_ip, private_key, public_key]):
             return jsonify({"success": False, "error": "Tous les champs sont requis"}), 400
 
         # Charger le template WireGuard
