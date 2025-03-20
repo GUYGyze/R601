@@ -295,9 +295,13 @@
 
         function createServerConfig() {
             const serverIp = document.getElementById('server_ip').value;
-            const serverPort = document.getElementById('server_port').value;
+            const serverPort = document.getElementById('server_listen_port').value;
             const serverInterface = document.getElementById('server_interface').value;
+            const clientName = document.getElementById('client_name').value;
+            const clientIp = document.getElementById('client_ip').value;
             const privateKey = document.getElementById('server_private_key').textContent;
+            const publicKey = document.getElementById('server_public_key').textContent;
+            const clientPort = document.getElementById('client_port').textContent;
             
             if (!serverIp || !serverPort || !serverInterface || privateKey === '-') {
                 alert('Veuillez remplir tous les champs et générer des clés');
@@ -306,9 +310,13 @@
 
             const formData = new FormData();
             formData.append('server_ip', serverIp);
-            formData.append('server_port', serverPort);
+            formData.append('server_listen_port', serverPort);
             formData.append('server_interface', serverInterface);
+            formData.append('client_name', clientName);
+            formData.append('client_ip', clientIp);
+            formData.append('client_port', clientPort);
             formData.append('server_private_key', privateKey);
+            formData.append('server_public_key', publicKey);
 
             fetch('/api/create_server_config', {
                 method: 'POST',
@@ -319,42 +327,6 @@
                 if (data.success) {
                     alert('Configuration du serveur créée avec succès');
                     refreshStatus();
-                } else {
-                    alert('Erreur: ' + data.error);
-                }
-            });
-        }
-
-        function createClient() {
-            const clientName = document.getElementById('client_name').value;
-            const clientIp = document.getElementById('client_ip').value;
-            const serverEndpoint = document.getElementById('server_endpoint').value;
-            const serverPort = document.getElementById('client_server_port').value;
-            const privateKey = document.getElementById('client_private_key').textContent;
-            const publicKey = document.getElementById('client_public_key').textContent;
-            
-            if (!clientName || !clientIp || !serverEndpoint || !serverPort || privateKey === '-' || publicKey === '-') {
-                alert('Veuillez remplir tous les champs et générer des clés');
-                return;
-            }
-
-            const formData = new FormData();
-            formData.append('client_name', clientName);
-            formData.append('client_ip', clientIp);
-            formData.append('server_endpoint', serverEndpoint);
-            formData.append('server_port', serverPort);
-            formData.append('private_key', privateKey);
-            formData.append('public_key', publicKey);
-
-            fetch('/api/create_client', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    alert('Client créé avec succès');
-                    location.reload();
                 } else {
                     alert('Erreur: ' + data.error);
                 }
