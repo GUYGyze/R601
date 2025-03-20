@@ -161,6 +161,7 @@ def api_create_client_config():
         server_port = request.form.get('server_port')
         private_key = request.form.get('client_private_key')
         public_key = request.form.get('client_public_key')
+        server_public_key = x # Récupérer la clé publique du serveur
 
         if not all([client_name, client_ip, server_ip, server_port, private_key, public_key]):
             return jsonify({"success": False, "error": "Tous les champs sont requis"}), 400
