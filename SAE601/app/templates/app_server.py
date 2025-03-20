@@ -10,6 +10,8 @@ WG_INTERFACE = "wg0"
 SERVER_PRIVATE_KEY_PATH = "server_privatekey"
 SERVER_PUBLIC_KEY_PATH = "server_publickey"
 
+os.makedirs(WG_CONFIG_PATH, exist_ok=True) # vérifier que le dossier de configuration existe
+
 # Génération des clés publiques et privées
 def generate_keys():
     private_key = subprocess.check_output("wg genkey", shell=True).decode('utf-8').strip()
