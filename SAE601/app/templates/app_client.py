@@ -1,4 +1,4 @@
-veufrom flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify
 import subprocess
 import os
 import socket
