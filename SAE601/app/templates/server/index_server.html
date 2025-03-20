@@ -202,7 +202,7 @@
                 const formData = new FormData();
                 formData.append('client_name', clientName);
                 
-                fetch('/api/send_public_key_direct', {
+                fetch('/api/send_public_key', {
                     method: 'POST',
                     body: formData
                 })
