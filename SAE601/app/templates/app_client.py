@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify
+veufrom flask import Flask, render_template, request, jsonify
 import subprocess
 import os
 import socket
@@ -62,6 +62,9 @@ def send_udp_packet(dest_ip, udp_data):
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
         s.sendto(udp_data, (dest_ip, 51820))
 
+########################
+########################
+
 # Génération des clés publiques et privées
 def generate_keys():
     private_key = subprocess.check_output("wg genkey", shell=True).decode('utf-8').strip()
@@ -73,9 +76,9 @@ def generate_keys():
 def save_client_keys():
     private_key, public_key = generate_keys()
     with open(CLIENT_PRIVATE_KEY_PATH, 'w') as f:
-        f.write(private_key)
+        f.write(client_keys/private_key)
     with open(CLIENT_PUBLIC_KEY_PATH, 'w') as f:
-        f.write(public_key)
+        f.write(client_keys/public_key)
     return private_key, public_key
 
 # Envoi de la clé publique via le script encap.py
@@ -105,6 +108,8 @@ def api_create_client_config():
         if not all([client_name, client_ip, listen_port, server_port, server_ip, private_key, public_key]):
             return jsonify({"success": False, "error": "Tous les champs sont requis"}), 400
 
+        # Serveur public key reception => wireshark listenning (server_public_key)
+
         # Charger le template WireGuard
         config_template = """[Interface]
 PrivateKey = {{ client_private_key }}
@@ -112,7 +117,7 @@ Address = {{ client_ip }}/24
 
 [Peer]
 PublicKey = {{ server_public_key }}
-Endpoint = {{ server_endpoint }}:{{ server_port }}
+Endpoint = {{ server_ip }}:{{ server_port }}
 AllowedIPs = 0.0.0.0/0
 """
 
