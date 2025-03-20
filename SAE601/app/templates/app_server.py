@@ -20,12 +20,13 @@ def generate_keys():
 def save_server_keys():
     private_key, public_key = generate_keys()
     with open(SERVER_PRIVATE_KEY_PATH, 'w') as f:
-        f.write(private_key)
+        f.write(server_keys/private_key)
     with open(SERVER_PUBLIC_KEY_PATH, 'w') as f:
-        f.write(public_key)
+        f.write(server_keys/public_key)
     return private_key, public_key
 
 # Envoi de la clé publique via le script encap.py
+# A changer
 def send_server_key():
     subprocess.run(["python3", "encap.py", "server"])
 
