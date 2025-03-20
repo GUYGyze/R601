@@ -1,16 +1,67 @@
 from flask import Flask, render_template, request, jsonify
 import subprocess
 import os
+import socket
+import struct
+import random
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder='templates', static_folder='static')
 
 # Chemin des fichiers de configuration WireGuard
-WG_CONFIG_PATH = "/etc/wireguard/wg0.conf"
+WG_CONFIG_PATH = "/etc/wireguard/"
 WG_INTERFACE = "wg0"
-SERVER_PRIVATE_KEY_PATH = "server_privatekey"
-SERVER_PUBLIC_KEY_PATH = "server_publickey"
+SERVER_KEYS_DIR = "server_keys"
+os.makedirs(SERVER_KEYS_DIR, exist_ok=True)
 
-os.makedirs(WG_CONFIG_PATH, exist_ok=True) # vérifier que le dossier de configuration existe
+############################################
+### Fonctions Capture & Envoi Paquets ICMP ###
+############################################
+
+def capture_wireguard_udp_packet(port=51820):
+    with socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_UDP) as s:
+        s.bind(('0.0.0.0', 0))
+        print(f"Attente d'un paquet WireGuard sur le port {port}...")
+        while True:
+            packet, addr = s.recvfrom(65535)
+            ip_header = packet[:20]
+            udp_header = packet[20:28]
+            src_port, dest_port = struct.unpack('!HH', udp_header[:4])
+            if dest_port == port:
+                print(f"Paquet UDP WireGuard capturé de {addr}")
+                return packet[28:]  # Seulement le payload UDP
+
+def checksum(msg):
+    s = 0
+    for i in range(0, len(msg), 2):
+        w = (msg[i] << 8) + (msg[i+1] if i+1 < len(msg) else 0)
+        s += w
+    s = (s >> 16) + (s & 0xffff)
+    s += (s >> 16)
+    return ~s & 0xffff
+
+def create_icmp_packet(udp_data):
+    icmp_type = 8
+    icmp_code = 0
+    checksum_value = 0
+    identifier = random.randint(0, 65535)
+    sequence_number = random.randint(0, 65535)
+    header = struct.pack('!BBHHH', icmp_type, icmp_code, checksum_value, identifier, sequence_number)
+    payload = udp_data
+    checksum_value = checksum(header + payload)
+    header = struct.pack('!BBHHH', icmp_type, icmp_code, checksum_value, identifier, sequence_number)
+    return header + payload
+
+def send_icmp_packet(dest_ip, udp_data):
+    packet = create_icmp_packet(udp_data)
+    with socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_ICMP) as s:
+        s.sendto(packet, (dest_ip, 0))
+
+def send_udp_packet(dest_ip, udp_data):
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+        s.sendto(udp_data, (dest_ip, 51820))
+
+########################
+########################
 
 # Génération des clés publiques et privées
 def generate_keys():
@@ -87,7 +138,7 @@ def send_server_key():
     subprocess.run(["python3", "encap.py", "server"])
 
 # Routes Flask
-@app.route('/server')
+@app.route('/')
 def server_index():
     # Afficher la page du serveur
     server_private_key, server_public_key = save_server_keys()
@@ -99,7 +150,7 @@ def api_generate_server_keys():
     server_private_key, server_public_key = save_server_keys()
     return jsonify({"private_key": server_private_key, "public_key": server_public_key})
 
-@app.route('/api/send_server_key', methods=["POST"])
+@app.route('/api/send_public_key', methods=["POST"])
 def api_send_server_key():
     # Exécuter le script pour envoyer la clé publique du serveur
     send_server_key()
