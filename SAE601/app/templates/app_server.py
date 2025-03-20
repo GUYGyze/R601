@@ -27,6 +27,58 @@ def save_server_keys():
         f.write(server_keys/public_key)
     return private_key, public_key
 
+@app.route('/api/create_client_config', methods=['POST'])
+def api_create_client_config():
+    try:
+        # Récupération des données du formulaire
+        client_name = request.form.get('client_name')
+        client_ip = request.form.get('client_ip')
+        server_endpoint = request.form.get('server_ip')
+        server_port = request.form.get('server_port')
+        private_key = request.form.get('client_private_key')
+        public_key = request.form.get('client_public_key')
+
+        # Vérifier que toutes les données sont bien fournies
+        if not all([server_ip, server_listen_port, client_port, client_ip, server_ip, server_private_key, server_public_key]):
+            return jsonify({"success": False, "error": "Tous les champs sont requis"}), 400
+
+        # Client public key reception => wireshark listenning (client_public_key)
+
+        # Charger le template WireGuard
+        config_template = """[Interface]
+PrivateKey = {{ server_private_key }}
+Address = {{ server_ip }}
+ListenPort = {{ server_listen_port }}
+
+{% for client in clients %}
+[Peer]
+PublicKey = {{ client.public_key }}
+AllowedIPs = {{ client.ip }}/32
+{% endfor %}"""
+
+        # Générer la configuration avec Jinja2
+        config_content = render_template_string(
+            config_template,
+            client_private_key=private_key,
+            client_ip=client_ip,
+            server_public_key=public_key,
+            server_endpoint=server_endpoint,
+            server_port=server_port
+        )
+
+        # Définir le chemin du fichier de configuration
+        config_path = os.path.join(WG_CONFIG_PATH, f"{client_name}.conf")
+
+        # Écrire la configuration dans un fichier
+        with open(config_path, 'w') as config_file:
+            config_file.write(config_content)
+
+        return jsonify({"success": True, "message": "Configuration client créée avec succès", "file": config_path})
+
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 # Envoi de la clé publique via le script encap.py
 # A changer
 def send_server_key():
