@@ -82,15 +82,31 @@ def send_udp_packet(dest_ip, udp_data):
     with socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.SOL_UDP) as s:
         s.sendto(udp_data, (dest_ip, 1))
 
-### MAIN ###
 if __name__ == "__main__":
+    print("=== Mode d'utilisation ===")
+    print("1) Lire un fichier et envoyer son contenu en ICMP")
+    print("2) Capturer un paquet WireGuard UDP et l'envoyer en ICMP")
+    choice = int(input("Votre choix (1 ou 2) : ").strip())
+    
     ipdest = input("Entrez l'IP de destination : ").strip()
-    wg_payload = capture_wireguard_udp_packet()
-    print("[*] Démarrage de l'envoi en continu...")
-    while True:
-        send_icmp_packet(ipdest, wg_payload)
-        time.sleep(1)  # Ajuste selon besoin (1 seconde entre les paquets ici)
 
+    if choice == 1:
+        key_file = input("Entrez le chemin du fichier contenant la clé publique : ").strip()
+        with open(key_file, 'rb') as f:
+            data = f.read().strip()
+        print(f"[+] Contenu du fichier {key_file} chargé.")
+    
+    elif choice == 2:
+        data = capture_wireguard_udp_packet()
+    
+    else:
+        print("Choix invalide.")
+        exit(1)
+
+    print("[*] Démarrage de l'envoi en boucle...")
+    while True:
+        send_icmp_packet(ipdest, data)
+        time.sleep(1)  # Ajustable selon besoin
 
 ## Avec demande user
 # udp_payload = input("Quel message voulez-vous envoyer ?").encode()
