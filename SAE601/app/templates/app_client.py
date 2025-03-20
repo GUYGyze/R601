@@ -99,7 +99,7 @@ def api_create_client_config():
         # Récupération des données du formulaire
         client_name = request.form.get('client_name')
         client_ip = request.form.get('client_ip')
-        server_endpoint = request.form.get('server_ip')
+        server_ip = request.form.get('server_ip')
         server_port = request.form.get('server_port')
         private_key = request.form.get('client_private_key')
         public_key = request.form.get('client_public_key')
@@ -124,10 +124,10 @@ AllowedIPs = 0.0.0.0/0
         # Générer la configuration avec Jinja2
         config_content = render_template_string(
             config_template,
-            client_private_key=private_key,
+            client_private_key=client_private_key,
             client_ip=client_ip,
-            server_public_key=public_key,
-            server_endpoint=server_endpoint,
+            server_public_key=server_public_key,
+            server_ip=server_ip,
             server_port=server_port
         )
 
