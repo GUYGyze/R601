@@ -27,19 +27,21 @@ def save_server_keys():
         f.write(server_keys/public_key)
     return private_key, public_key
 
-@app.route('/api/create_client_config', methods=['POST'])
-def api_create_client_config():
+@app.route('/api/create_server_config', methods=['POST'])
+def create_server_config():
     try:
         # Récupération des données du formulaire
         client_name = request.form.get('client_name')
         client_ip = request.form.get('client_ip')
-        server_endpoint = request.form.get('server_ip')
-        server_port = request.form.get('server_port')
-        private_key = request.form.get('client_private_key')
-        public_key = request.form.get('client_public_key')
+        client_port = request.form.get('client_port')
+        server_ip = request.form.get('server_ip')
+        server_listen_port = request.form.get('server_listen_port')
+        server_interface = request.form.get('server_interface')
+        server_private_key = request.form.get('client_private_key')
+        server_public_key = request.form.get('client_public_key')
 
         # Vérifier que toutes les données sont bien fournies
-        if not all([server_ip, server_listen_port, client_port, client_ip, server_ip, server_private_key, server_public_key]):
+        if not all([server_ip, server_listen_port, server_interface, client_port, client_ip, client_name, server_private_key, server_public_key]):
             return jsonify({"success": False, "error": "Tous les champs sont requis"}), 400
 
         # Client public key reception => wireshark listenning (client_public_key)
@@ -59,11 +61,11 @@ AllowedIPs = {{ client.ip }}/32
         # Générer la configuration avec Jinja2
         config_content = render_template_string(
             config_template,
-            client_private_key=private_key,
+            server_private_key=server_private_key,
             client_ip=client_ip,
-            server_public_key=public_key,
-            server_endpoint=server_endpoint,
-            server_port=server_port
+            client_public_key=client_public_key,
+            server_ip=server_ip,
+            server_listen_port=server_listen_port
         )
 
         # Définir le chemin du fichier de configuration
