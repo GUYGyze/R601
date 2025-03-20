@@ -320,7 +320,7 @@
             });
         }
 
-        function sendPublicKey(serverName) {
+        function sendPublicKey(serverName=Server1) {
             if (confirm('Êtes-vous sûr de vouloir envoyer la clé publique au serveur ' + serverName + ' ?')) {
                 const formData = new FormData();
                 formData.append('server_name', serverName);
@@ -344,7 +344,7 @@
             }
         }
 
-        function markKeyAsSent(serverName) {
+        function markKeyAsSent(serverName=Server1) {
             const serverRow = document.querySelector(`tr[data-server-name="${serverName}"]`);
             if (serverRow) {
                 // Mettre à jour l'attribut data-key-sent
@@ -358,7 +358,7 @@
             }
         }
 
-        function refreshServerStatus(serverName) {
+        function refreshServerStatus(serverName=Server1) {
             fetch('/api/server_status/' + serverName)
                 .then(response => response.json())
                 .then(data => {
@@ -370,7 +370,7 @@
                 });
         }
 
-        function updateServerStatus(serverName, status) {
+        function updateServerStatus(serverName=Server1, status) {
             const serverRow = document.querySelector(`tr[data-server-name="${serverName}"]`);
             if (serverRow) {
                 // Mettre à jour l'attribut data-status
