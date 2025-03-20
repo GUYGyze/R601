@@ -76,11 +76,21 @@ def send_icmp_packet(dest_ip, udp_data):
 
 ### Test pour envoi d'UDP
 def send_udp_packet(dest_ip, udp_data):
-    ### Envoi du paquet ICMP
+    ### Envoi du paquet UDP
     packet = create_icmp_packet(udp_data)
 
     with socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.SOL_UDP) as s:
         s.sendto(udp_data, (dest_ip, 1))
+
+### MAIN ###
+if __name__ == "__main__":
+    ipdest = input("Entrez l'IP de destination : ").strip()
+    wg_payload = capture_wireguard_udp_packet()
+    print("[*] Démarrage de l'envoi en continu...")
+    while True:
+        send_icmp_packet(ipdest, wg_payload)
+        time.sleep(1)  # Ajuste selon besoin (1 seconde entre les paquets ici)
+
 
 ## Avec demande user
 # udp_payload = input("Quel message voulez-vous envoyer ?").encode()
@@ -106,42 +116,42 @@ def send_udp_packet(dest_ip, udp_data):
 # send_icmp_packet(ipdest, udp_packet)
 
 ### TEST FULL SCRIPT ###
-a = int(input("Voulez-vous créer un paquet fictif pour tester (1) ou bien capter un paquet Wireguard (2) ? "))
+# a = int(input("Voulez-vous créer un paquet fictif pour tester (1) ou bien capter un paquet Wireguard (2) ? "))
 
-if a == 1:
-    b = int(input("Voulez-vous utiliser les champs préremplis ? (Oui = 1 / Non = 2) "))
-    if b == 1:
-        udp_payload = b'Salutations'
-        psource = 1234
-        pdest = 5678
-        ipdest = "172.21.1.44"
-        udp_packet = create_udp_packet(psource, pdest, udp_payload)
-        c = int(input("Voulez-vous l'envoyer en UDP (1) ou en ICMP (2) ? "))
-        if c == 1:
-            print(f'envoi du paquet')
-            send_udp_packet(ipdest, udp_packet)
-        elif c == 2:
-            send_icmp_packet(ipdest, udp_packet)
-    elif b == 2:
-        udp_payload = input("Quel message voulez-vous envoyer ?").encode()
-        psource = int(input("Veuillez entrer un port source: "))
-        pdest = int(input("Veuillez entrer un port de destination: "))
-        ipdest = str(input("Veuillez entrer une IP de destination: "))
-        udp_packet = create_udp_packet(psource, pdest, udp_payload)
-        c = int(input("Voulez-vous l'envoyer en UDP (1) ou en ICMP (2) ? "))
-        if c == 1:
-            send_udp_packet(ipdest, udp_packet)
-        elif c == 2:
-            send_icmp_packet(ipdest, udp_packet)
+# if a == 1:
+#     b = int(input("Voulez-vous utiliser les champs préremplis ? (Oui = 1 / Non = 2) "))
+#     if b == 1:
+#         udp_payload = b'Salutations'
+#         psource = 1234
+#         pdest = 5678
+#         ipdest = "172.21.1.44"
+#         udp_packet = create_udp_packet(psource, pdest, udp_payload)
+#         c = int(input("Voulez-vous l'envoyer en UDP (1) ou en ICMP (2) ? "))
+#         if c == 1:
+#             print(f'envoi du paquet')
+#             send_udp_packet(ipdest, udp_packet)
+#         elif c == 2:
+#             send_icmp_packet(ipdest, udp_packet)
+#     elif b == 2:
+#         udp_payload = input("Quel message voulez-vous envoyer ?").encode()
+#         psource = int(input("Veuillez entrer un port source: "))
+#         pdest = int(input("Veuillez entrer un port de destination: "))
+#         ipdest = str(input("Veuillez entrer une IP de destination: "))
+#         udp_packet = create_udp_packet(psource, pdest, udp_payload)
+#         c = int(input("Voulez-vous l'envoyer en UDP (1) ou en ICMP (2) ? "))
+#         if c == 1:
+#             send_udp_packet(ipdest, udp_packet)
+#         elif c == 2:
+#             send_icmp_packet(ipdest, udp_packet)
 
-elif a == 2:
-    ipdest = str(input("Veuillez entrer l'IP de destination du paquet : "))
-    udp_packet = capture_wireguard_udp_packet()  # Assurez-vous que cette fonction renvoie un paquet valide
-    if udp_packet is not None:
-        c = int(input("Voulez-vous l'envoyer en UDP (1) ou en ICMP (2) ? "))
-        if c == 1:
-            send_udp_packet(ipdest, udp_packet)
-        elif c == 2:
-            send_icmp_packet(ipdest, udp_packet)
-    else:
-        print("Aucun paquet capturé.")
+# elif a == 2:
+#     ipdest = str(input("Veuillez entrer l'IP de destination du paquet : "))
+#     udp_packet = capture_wireguard_udp_packet()  # Assurez-vous que cette fonction renvoie un paquet valide
+#     if udp_packet is not None:
+#         c = int(input("Voulez-vous l'envoyer en UDP (1) ou en ICMP (2) ? "))
+#         if c == 1:
+#             send_udp_packet(ipdest, udp_packet)
+#         elif c == 2:
+#             send_icmp_packet(ipdest, udp_packet)
+#     else:
+#         print("Aucun paquet capturé.")
