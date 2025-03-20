@@ -286,8 +286,8 @@
             const clientName = document.getElementById('client_name').value;
             const clientIp = document.getElementById('client_ip').value;
             const clientListenPort = document.getElementById('client_listen_port').value;
-            const serverEndpoint = document.getElementById('server_endpoint').value;
-            const serverPort = document.getElementById('client_server_port').value;
+            const serverEndpoint = document.getElementById('server_ip').value;
+            const serverPort = document.getElementById('server_port').value;
             const privateKey = document.getElementById('client_private_key').textContent;
             const publicKey = document.getElementById('client_public_key').textContent;
             
@@ -300,10 +300,10 @@
             formData.append('client_name', clientName);
             formData.append('client_ip', clientIp);
             formData.append('client_listen_port', clientListenPort);
-            formData.append('server_endpoint', serverEndpoint);
+            formData.append('server_ip', serverEndpoint);
             formData.append('server_port', serverPort);
-            formData.append('private_key', privateKey);
-            formData.append('public_key', publicKey);
+            formData.append('client_private_key', privateKey);
+            formData.append('client_public_key', publicKey);
 
             fetch('/api/create_client_config', {
                 method: 'POST',
