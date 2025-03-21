@@ -196,7 +196,7 @@ AllowedIPs = 0.0.0.0/0
             server_public_key=server_public_key
         )
 
-        config_path = os.path.join(WG_CONFIG_PATH, f"{client_name}.conf")
+        config_path = os.path.join(WG_CONFIG_PATH, f"{WG_INTERFACE}.conf")
 
         with open(config_path, 'w') as config_file:
             config_file.write(config_content)
