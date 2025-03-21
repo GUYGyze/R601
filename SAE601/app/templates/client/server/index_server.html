@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestionnaire WireGuard</title>
+    <link rel="stylesheet" href="../../static/styles_server.css">
+</head>
+<body>
+    <h1>Gestionnaire de Tunnel WireGuard</h1>
+
+    <div class="card">
+        <h2>Configuration du Tunnel WireGuard</h2>
+        
+        <div class="tabs">
+            <div class="tab active" onclick="showTab('server-config')">Configuration Serveur</div>
+            <div class="tab" onclick="showTab('client-config')">Configuration Client</div>
+        </div>
+        
+        <div class="tab-content">
+            <div class="tab-pane active" id="server-config">
+                <h3>Configuration du Serveur</h3>
+                <div class="form-group">
+                    <label for="server_ip">Adresse IP du serveur (Wireguard)</label>
+                    <input type="text" id="server_ip" placeholder="10.0.0.1">
+                </div>
+				<div class="form-group">
+                    <label for="server_endpoint">Adresse IP du serveur (Physique)</label>
+                    <input type="text" id="server_endpoint" placeholder="192.168.1.2">
+                </div>
+                <div class="form-group">
+                    <label for="server_port">Port d'écoute</label>
+                    <input type="number" id="server_listen_port" placeholder="51820" min="1" max="65535">
+                </div>
+                <div class="form-group">
+                    <label for="server_interface">Interface réseau</label>
+                    <input type="text" id="server_interface" placeholder="eth0">
+                </div>
+                <div class="form-group">
+                    <button onclick="generateServerKeys()">Générer des clés</button>
+                </div>
+                <div class="form-group">
+                    <label>Clé publique du serveur:</label>
+                    <div class="status" id="server_public_key">-</div>
+                </div>
+                <div class="form-group">
+                    <label>Clé privée du serveur:</label>
+                    <div class="status" id="server_private_key">-</div>
+                </div>
+            </div>
+            
+            <div class="tab-pane" id="client-config">
+                <h3>Ajouter un client</h3>
+                <div class="form-group">
+                    <label for="client_name">Nom du client</label>
+                    <input type="text" id="client_name" placeholder="Nom du client">
+                </div>
+                <div class="form-group">
+                    <label for="client_ip">Adresse IP du client (Wireguard)</label>
+                    <input type="text" id="client_ip" placeholder="10.0.0.2">
+                </div>
+				<div class="form-group">
+                    <label for="client_endpoint">Adresse IP du client (Physique)</label>
+                    <input type="text" id="client_endpoint" placeholder="192.168.1.1">
+                </div>
+                <div class="form-group">
+                    <label for="client_port">Port du Client</label>
+                    <input type="number" id="client_port" placeholder="51820" min="1" max="65535">
+                </div>
+            </div>
+        </div>
+		<div class="form-group">
+            <button onclick="sendPublicKey()">Envoyer la clé publique</button>
+			<button onclick="createServerConfig()">Créer la configuration</button>
+        </div>
+    </div>
+    <script>
+        function showTab(tabId) {
+            // Masquer tous les panneaux
+            const panes = document.querySelectorAll('.tab-pane');
+            panes.forEach(pane => pane.classList.remove('active'));
+            
+            // Désactiver tous les onglets
+            const tabs = document.querySelectorAll('.tab');
+            tabs.forEach(tab => tab.classList.remove('active'));
+            
+            // Activer l'onglet et le panneau sélectionnés
+            document.getElementById(tabId).classList.add('active');
+            document.querySelector(`.tab[onclick="showTab('${tabId}')"]`).classList.add('active');
+        }
+
+        function generateServerKeys() {
+            fetch('/api/generate_keys')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        document.getElementById('server_public_key').textContent = data.public_key;
+                        document.getElementById('server_private_key').textContent = data.private_key;
+                    } else {
+                        alert('Erreur: ' + data.error);
+                    }
+                });
+        }
+
+        function createServerConfig() {
+            const serverIp = document.getElementById('server_ip').value;
+			const serverEndpoint = document.getElementById('server_endpoint').value;
+            const serverPort = document.getElementById('server_listen_port').value;
+            const serverInterface = document.getElementById('server_interface').value;
+            const clientName = document.getElementById('client_name').value;
+            const clientIp = document.getElementById('client_ip').value;
+			const clientEndpoint = document.getElementById('client_endpoint').value;
+            const privateKey = document.getElementById('server_private_key').textContent;
+            const publicKey = document.getElementById('server_public_key').textContent;
+            const clientPort = document.getElementById('client_port').textContent;
+            
+            if (!serverIp || !serverPort || !serverEndpoint || !serverInterface || !clientName || !clientIp || !clientEndpoint || !clientPort || privateKey === '-') {
+                alert('Veuillez remplir tous les champs et générer des clés');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('server_ip', serverIp);
+			formData.append('server_endpoint', serverEndpoint);
+            formData.append('server_listen_port', serverPort);
+            formData.append('server_interface', serverInterface);
+            formData.append('client_name', clientName);
+            formData.append('client_ip', clientIp);
+			formData.append('client_endpoint', clientEndpoint);
+            formData.append('client_port', clientPort);
+            formData.append('server_private_key', privateKey);
+            formData.append('server_public_key', publicKey);
+    
+	fetch('/api/create_server_config', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Configuration du serveur créée avec succès');
+                } else {
+                    alert('Erreur: ' + data.error);
+                }
+            });
+        }
+
+	function sendPublicKey() {
+    		// Si l'adresse IP du client est stockée ailleurs dans la page, vous pouvez la récupérer ici
+    		// Par exemple, depuis un champ input avec un id specifique:
+    		const destIp = document.getElementById('client_endpoint').value;
+    
+    		fetch('/api/send_public_key', {
+        		method: 'POST',
+        		headers: {
+            		'Content-Type': 'application/json'
+        		},
+        		body: JSON.stringify({
+            		dest_ip: destIp
+        		})
+    		})
+    		.then(response => response.json())
+    		.then(data => {
+        		if (data.success) {
+            			alert('Clé publique du serveur envoyée avec succès');
+        		} else {
+            			alert('Erreur: ' + data.error);
+        		}
+    		})
+    		.catch(error => {
+        		alert('Erreur de connexion: ' + error);
+    		});
+	}
+
+        function markKeyAsSent(clientName) {
+            const clientRow = document.querySelector(`tr[data-client-name="${clientName}"]`);
+            if (clientRow) {
+                // Mettre à jour l'attribut data-key-sent
+                clientRow.dataset.keySent = 'true';
+                
+                // Activer les contrôles du tunnel
+                const tunnelControls = document.getElementById(`tunnel-controls-${clientName}`);
+                if (tunnelControls) {
+                    tunnelControls.classList.add('enabled');
+                }
+                
+                // Désactiver le bouton d'envoi de clé
+                const sendKeyButton = clientRow.querySelector('.send-key-button');
+                if (sendKeyButton) {
+                    sendKeyButton.disabled = true;
+                }
+            }
+        }
+    </script>
+</body>
+</html>
