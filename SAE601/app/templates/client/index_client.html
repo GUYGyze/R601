@@ -106,12 +106,12 @@
         }
 
         function createClientConfig() {
+	    const serverEndpoint = document.getElementById('server_endpoint').value;
 	    addServer(serverEndpoint);
             const clientName = document.getElementById('client_name').value;
             const clientIp = document.getElementById('client_ip').value;
 	    const clientEndpoint = document.getElementById('client_endpoint').value;
             const serverIp = document.getElementById('server_ip').value;
-	    const serverEndpoint = document.getElementById('server_endpoint').value;
             const serverPort = document.getElementById('server_port').value;
 	    const clientListenPort = document.getElementById('client_listen_port').value;
             const privateKey = document.getElementById('client_private_key').textContent;
