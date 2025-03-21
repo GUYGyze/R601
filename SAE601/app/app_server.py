@@ -134,14 +134,17 @@ def create_server_config():
         # Récupération des données du formulaire
         client_name = request.form.get('client_name')
         client_ip = request.form.get('client_ip')
+        client_endpoint = request.form.get('client_endpoint')
         client_port = request.form.get('client_port')
+        
         server_ip = request.form.get('server_ip')
         server_listen_port = request.form.get('server_listen_port')
         server_interface = request.form.get('server_interface')
+        server_endpoint = request.form.get('server_endpoint')
+        
         server_private_key = request.form.get('server_private_key')
         server_public_key = request.form.get('server_public_key')
-	server_endpoint = request.form.get('server_endpoint')
-
+        
         # Vérifier que toutes les données sont bien fournies
         if not all([server_ip, server_listen_port, server_interface, client_ip, client_name, server_private_key, server_public_key]):
             return jsonify({"success": False, "error": "Tous les champs sont requis"}), 400
@@ -166,6 +169,7 @@ Endpoint = {{ client_endpoint }}:{{ client_port }}
             config_template,
             server_private_key=server_private_key,
             client_ip=client_ip,
+            client_endpoint=client_endpoint,
             client_public_key=client_public_key,
             server_ip=server_ip,
             client_port=client_port,
@@ -205,21 +209,6 @@ def send_server_key(client_ip):
 def server_index():
     # Afficher la page du serveur
     return render_template('server/index_server.html')
-
-app.route('/api/send_public_key', methods=["POST"])
-def api_send_server_key():
-    data = request.get_json()
-    dest_ip = data.get("dest_ip")
-    print(dest_ip)
-
-    if not dest_ip:
-        return jsonify({"success": False, "error": "Aucune adresse IP fournie"}), 400  # Ajoute une vérification
-
-    try:
-        send_server_key(dest_ip)
-        return jsonify({"success": True, "message": f"Clé publique envoyée en ICMP vers {dest_ip}"})
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500  # Capture les erreurs
 
 @app.route('/api/generate_keys')
 def api_generate_server_keys():
