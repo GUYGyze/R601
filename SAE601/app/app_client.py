@@ -52,6 +52,9 @@ def receive_icmp_packet(process_function=None):
             print(f"Paquet ICMP reçu de {addr}")
             udp_data = extract_udp_from_icmp(packet)
             print(f"Données UDP extraites : {udp_data}")
+            server_public_key = udp_data.decode('utf-8').strip()
+            print(f"Clé publique reçue : {server_public_key}")
+            return server_public_key
 
             if process_function:
                 process_function(udp_data)
@@ -156,7 +159,6 @@ def api_generate_client_keys():
 def api_create_client_config():
     try:
         server_public_key = receive_icmp_packet()
-        print(server_public_key)
         
         client_name = request.form.get('client_name')
         client_ip = request.form.get('client_ip')
@@ -164,17 +166,21 @@ def api_create_client_config():
         server_port = request.form.get('server_port')
         private_key = request.form.get('client_private_key')
         public_key = request.form.get('client_public_key')
+        client_listen_port = request.form.get('client_listen_port')
+        server_endpoint = request.form.get('server_endpoint')
 
         if not all([client_name, client_ip, server_ip, server_port, private_key, public_key]):
             return jsonify({"success": False, "error": "Tous les champs sont requis"}), 400
 
         config_template = """[Interface]
 PrivateKey = {private_key}
+SaveConfig = true
+ListenPort = {{ client_listen_port }}
 Address = {client_ip}/24
 
 [Peer]
 PublicKey = {server_public_key}
-Endpoint = {server_ip}:{server_port}
+Endpoint = {server_endpoint}:{server_port}
 AllowedIPs = 0.0.0.0/0
 """
         config_content = config_template.format(
@@ -182,7 +188,9 @@ AllowedIPs = 0.0.0.0/0
             client_ip=client_ip,
             client_public_key=public_key,
             server_ip=server_ip,
-            server_port=server_port
+            server_port=server_port,
+            client_listen_port=client_listen_port,
+            server_endpoint=server_endpoint
         )
 
         config_path = os.path.join(WG_CONFIG_PATH, f"{client_name}.conf")
