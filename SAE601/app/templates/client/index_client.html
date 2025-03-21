@@ -67,7 +67,7 @@
         </div>
 	<div class="form-group">
                 <button onclick="createClientConfig()">Créer la configuration</button>
-                <button onclick="sendClientPublicKey()">Envoyer la clé publique</button>
+                <button onclick="sendPublicKey()">Envoyer la clé publique</button>
         </div>
     </div>
 
@@ -134,10 +134,10 @@
                 }
             });
         }
-	function sendClientPublicKey() {
-    		const serverIp = document.getElementById('server_endpoint').value;
+	function sendPublicKey() {
+    		const serverEndpoint = document.getElementById('server_endpoint').value;
     		if (!serverEndpoint) {
-        		alert("Veuillez entrer l'adresse IP du serveur");
+        		alert("Veuillez entrer l'adresse IP Physique du serveur");
         		return;
     		}
 
