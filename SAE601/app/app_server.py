@@ -177,7 +177,7 @@ Endpoint = {{ client_endpoint }}:{{ client_port }}
         )
 
         # Définir le chemin du fichier de configuration
-        config_path = os.path.join(WG_CONFIG_PATH, f"{client_name}.conf")
+        config_path = os.path.join(WG_CONFIG_PATH, f"{WG_INTERFACE}.conf")
 
         # Écrire la configuration dans un fichier
         with open(config_path, 'w') as config_file:
