@@ -47,12 +47,6 @@
                     <label>Clé privée du client:</label>
                     <div class="status" id="client_private_key">-</div>
                 </div>
-                <div class="form-group">
-                    <button onclick="createClientConfig()">Créer la configuration</button>
-                </div>
-                <div class="form-group">
-                    <button onclick="sendClientPublicKey()">Envoyer la clé publique</button>
-                </div>
             </div>
 
             <div class="tab-pane" id="server-config">
@@ -70,6 +64,12 @@
                     <input type="number" id="server_port" placeholder="51820" min="1" max="65535">
                 </div>
             </div>
+        </div>
+	<div class="form-group">
+                <button onclick="createClientConfig()">Créer la configuration</button>
+	</div>
+         <div class="form-group">
+                <button onclick="sendClientPublicKey()">Envoyer la clé publique</button>
         </div>
     </div>
 
