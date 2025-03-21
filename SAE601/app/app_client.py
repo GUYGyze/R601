@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, render_template_string, request, jsonify
 import subprocess
 import os
 import socket
@@ -169,32 +169,31 @@ def api_create_client_config():
         server_endpoint = request.form.get('server_endpoint')
         server_port = request.form.get('server_port')
         
-        private_key = request.form.get('client_private_key')
-        public_key = request.form.get('client_public_key')
+        client_private_key = request.form.get('client_private_key')
+        client_public_key = request.form.get('client_public_key')
 
-        if not all([client_name, client_ip, server_ip, server_port, client_endpoint, server_endpoint, client_listen_port, private_key, public_key]):
+        if not all([client_name, client_ip, server_ip, server_port, client_endpoint, server_endpoint, client_listen_port, client_private_key, client_public_key]):
             return jsonify({"success": False, "error": "Tous les champs sont requis"}), 400
 
         config_template = """[Interface]
-PrivateKey = {private_key}
+PrivateKey = {{ client_private_key }}
 SaveConfig = true
 ListenPort = {{ client_listen_port }}
-Address = {client_ip}/24
+Address = {{ client_ip }}/24
 
 [Peer]
-PublicKey = {server_public_key}
-Endpoint = {server_endpoint}:{server_port}
+PublicKey = {{ server_public_key }}
+Endpoint = {{ server_endpoint }}:{{ server_port }}
 AllowedIPs = 0.0.0.0/0
 """
-        config_content = config_template.format(
-            private_key=private_key,
+        config_content = render_template_string(
+            config_template,
+            client_private_key=client_private_key,
             client_ip=client_ip,
-            client_public_key=public_key,
-            server_ip=server_ip,
             server_port=server_port,
             client_listen_port=client_listen_port,
             server_endpoint=server_endpoint,
-            client_endpoint=client_endpoint
+            server_public_key=server_public_key
         )
 
         config_path = os.path.join(WG_CONFIG_PATH, f"{client_name}.conf")
