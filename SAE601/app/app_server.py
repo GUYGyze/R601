@@ -174,7 +174,6 @@ Endpoint = {{ client_endpoint }}:{{ client_port }}
             server_ip=server_ip,
             client_port=client_port,
             server_listen_port=server_listen_port,
-            server_endpoint=server_endpoint
         )
 
         # Définir le chemin du fichier de configuration
