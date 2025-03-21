@@ -70,7 +70,7 @@
                 <button onclick="sendPublicKey()">Envoyer la clé publique</button>
         </div>
 	<h2>Statut du Tunnel</h2>
-    <table>
+    <table border="1">
         <thead>
             <tr>
                 <th>IP du serveur</th>
@@ -78,24 +78,7 @@
                 <th>Actions</th>
             </tr>
         </thead>
-        <tbody id="tunnel-status">
-            <tr>
-                <td>192.168.1.10</td>
-                <td id="status-192.168.1.10">Inactif</td>
-                <td>
-                    <button onclick="startTunnel('192.168.1.10')">Activer</button>
-                    <button onclick="stopTunnel('192.168.1.10')">Arrêter</button>
-                </td>
-            </tr>
-            <tr>
-                <td>192.168.1.20</td>
-                <td id="status-192.168.1.20">Actif</td>
-                <td>
-                    <button onclick="startTunnel('192.168.1.20')">Activer</button>
-                    <button onclick="stopTunnel('192.168.1.20')">Arrêter</button>
-                </td>
-            </tr>
-        </tbody>
+        <tbody id="tunnel-status"></tbody>
     </table>
     </div>
 
@@ -123,6 +106,7 @@
         }
 
         function createClientConfig() {
+	    addServer(serverEndpoint);
             const clientName = document.getElementById('client_name').value;
             const clientIp = document.getElementById('client_ip').value;
 	    const clientEndpoint = document.getElementById('client_endpoint').value;
@@ -185,20 +169,30 @@
         		}
     		});
 	}
-	function updateTunnelStatus(serverIp) {
-            const tbody = document.getElementById('tunnel-status');
-            const row = document.createElement('tr');
+
+	function addServer(ip) {
+            let tableBody = document.getElementById("tunnel-status");
+            
+            // Vérifie si l'IP existe déjà
+            if (document.getElementById(`status-${ip}`)) {
+                alert("Le serveur avec cette IP existe déjà !");
+                return;
+            }
+
+            // Crée une nouvelle ligne
+            let row = document.createElement("tr");
             row.innerHTML = `
-                <td>${serverIp}</td>
-                <td id="status-${serverIp}">Inactif</td>
+                <td>${ip}</td>
+                <td id="status-${ip}">Inactif</td>
                 <td>
-                    <button onclick="startTunnel('${serverIp}')">Activer</button>
-                    <button onclick="stopTunnel('${serverIp}')">Arrêter</button>
+                    <button onclick="startTunnel('${ip}')">Activer</button>
+                    <button onclick="stopTunnel('${ip}')">Arrêter</button>
                 </td>
             `;
-            tbody.appendChild(row);
+            
+            tableBody.appendChild(row);
         }
-
+	    
         function startTunnel(serverIp) {
             fetch(`/api/start_tunnel?ip=${serverIp}`)
                 .then(response => response.json())
