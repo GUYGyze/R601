@@ -33,8 +33,8 @@
                     <input type="text" id="client_endpoint" placeholder="192.168.1.1">
                 </div>
                 <div class="form-group">
-                    <label for="server_port">Port du serveur</label>
-                    <input type="number" id="server_port" placeholder="51820" min="1" max="65535">
+                    <label for="client_listen_port">Port d'écoute du Client</label>
+                    <input type="number" id="client_listen_port" placeholder="51820" min="1" max="65535">
                 </div>
                 <div class="form-group">
                     <button onclick="generateClientKeys()">Générer des clés</button>
@@ -101,10 +101,11 @@
             const serverIp = document.getElementById('server_ip').value;
 	    const serverEndpoint = document.getElementById('server_endpoint').value;
             const serverPort = document.getElementById('server_port').value;
+	    const clientListenPort = document.getElementById('client_listen_port').value;
             const privateKey = document.getElementById('client_private_key').textContent;
             const publicKey = document.getElementById('client_public_key').textContent;
 
-            if (!clientName || !clientIp || !serverIp || !serverEndpoint || !clientEndpoint || !serverPort || privateKey === '-' || publicKey === '-') {
+            if (!clientName || !clientIp || !serverIp || !serverEndpoint || !clientListenPort || !clientEndpoint || !serverPort || privateKey === '-' || publicKey === '-') {
                 alert('Veuillez remplir tous les champs et générer des clés');
                 return;
             }
@@ -116,6 +117,7 @@
             formData.append('server_ip', serverIp);
 	    formData.append('server_endpoint', serverEndpoint);
             formData.append('server_port', serverPort);
+            formData.append('client_listen_port', clientListenPort);
             formData.append('client_private_key', privateKey);
             formData.append('client_public_key', publicKey);
 
