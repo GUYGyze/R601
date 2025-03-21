@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestionnaire WireGuard</title>
+    <title>Gestionnaire Serveur WireGuard</title>
     <link rel="stylesheet" href="../../static/styles_server.css">
 </head>
 <body>
-    <h1>Gestionnaire de Tunnel WireGuard</h1>
+    <h1>Gestionnaire Serveur WireGuard</h1>
 
     <div class="card">
         <h2>Configuration du Tunnel WireGuard</h2>
@@ -24,7 +24,7 @@
                     <label for="server_ip">Adresse IP du serveur (Wireguard)</label>
                     <input type="text" id="server_ip" placeholder="10.0.0.1">
                 </div>
-				<div class="form-group">
+		<div class="form-group">
                     <label for="server_endpoint">Adresse IP du serveur (Physique)</label>
                     <input type="text" id="server_endpoint" placeholder="192.168.1.2">
                 </div>
@@ -104,29 +104,29 @@
 
         function createServerConfig() {
             const serverIp = document.getElementById('server_ip').value;
-			const serverEndpoint = document.getElementById('server_endpoint').value;
+	    const serverEndpoint = document.getElementById('server_endpoint').value;
             const serverPort = document.getElementById('server_listen_port').value;
             const serverInterface = document.getElementById('server_interface').value;
             const clientName = document.getElementById('client_name').value;
             const clientIp = document.getElementById('client_ip').value;
-			const clientEndpoint = document.getElementById('client_endpoint').value;
+	    const clientEndpoint = document.getElementById('client_endpoint').value;
             const privateKey = document.getElementById('server_private_key').textContent;
             const publicKey = document.getElementById('server_public_key').textContent;
             const clientPort = document.getElementById('client_port').textContent;
             
-            if (!serverIp || !serverPort || !serverEndpoint || !serverInterface || !clientName || !clientIp || !clientEndpoint || !clientPort || privateKey === '-') {
+            if (!serverIp || !serverEndpoint || !serverInterface || !clientName || !clientIp || !clientEndpoint || privateKey === '-') {
                 alert('Veuillez remplir tous les champs et générer des clés');
                 return;
             }
 
             const formData = new FormData();
             formData.append('server_ip', serverIp);
-			formData.append('server_endpoint', serverEndpoint);
+	    formData.append('server_endpoint', serverEndpoint);
             formData.append('server_listen_port', serverPort);
             formData.append('server_interface', serverInterface);
             formData.append('client_name', clientName);
             formData.append('client_ip', clientIp);
-			formData.append('client_endpoint', clientEndpoint);
+	    formData.append('client_endpoint', clientEndpoint);
             formData.append('client_port', clientPort);
             formData.append('server_private_key', privateKey);
             formData.append('server_public_key', publicKey);
