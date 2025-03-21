@@ -69,10 +69,20 @@
                 </div>
             </div>
         </div>
-		<div class="form-group">
+	<div class="form-group">
             <button onclick="sendPublicKey()">Envoyer la clé publique</button>
-			<button onclick="createServerConfig()">Créer la configuration</button>
+	    <button onclick="createServerConfig()">Créer la configuration</button>
         </div>
+	<table border="1">
+        	<thead>
+            		<tr>
+                	<th>Adresse IP</th>
+                	<th>Statut</th>
+                	<th>Actions</th>
+            		</tr>
+        	</thead>
+        	<tbody id="tunnel-status"></tbody>
+    	</table>
     </div>
     <script>
         function showTab(tabId) {
@@ -103,13 +113,14 @@
         }
 
         function createServerConfig() {
+	    const clientEndpoint = document.getElementById('client_endpoint').value;
+	    addClient(clientEndpoint);
             const serverIp = document.getElementById('server_ip').value;
 	    const serverEndpoint = document.getElementById('server_endpoint').value;
             const serverPort = document.getElementById('server_listen_port').value;
             const serverInterface = document.getElementById('server_interface').value;
             const clientName = document.getElementById('client_name').value;
-            const clientIp = document.getElementById('client_ip').value;
-	    const clientEndpoint = document.getElementById('client_endpoint').value;
+	    const clientIp = document.getElementById('client_ip').value;
             const privateKey = document.getElementById('server_private_key').textContent;
             const publicKey = document.getElementById('server_public_key').textContent;
             const clientPort = document.getElementById('client_port').textContent;
@@ -171,25 +182,70 @@
         		alert('Erreur de connexion: ' + error);
     		});
 	}
+	function addClient(ip) {
+            let tableBody = document.getElementById("tunnel-status");
+            
+            // Vérifie si l'IP existe déjà
+            if (document.getElementById(`status-${ip}`)) {
+                alert("Le serveur avec cette IP existe déjà !");
+                return;
+            }
 
-        function markKeyAsSent(clientName) {
-            const clientRow = document.querySelector(`tr[data-client-name="${clientName}"]`);
-            if (clientRow) {
+            // Crée une nouvelle ligne
+            let row = document.createElement("tr");
+            row.innerHTML = `
+                <td>${ip}</td>
+                <td id="status-${ip}">Inactif</td>
+                <td>
+                    <button onclick="startTunnel('${ip}')">Activer</button>
+                    <button onclick="stopTunnel('${ip}')">Arrêter</button>
+                </td>
+            `;
+            
+            tableBody.appendChild(row);
+        }
+        function markKeyAsSent(serverName) {
+            const serverRow = document.querySelector(`tr[data-client-name="${serverName}"]`);
+            if (serverRow) {
                 // Mettre à jour l'attribut data-key-sent
-                clientRow.dataset.keySent = 'true';
+                serverRow.dataset.keySent = 'true';
                 
                 // Activer les contrôles du tunnel
-                const tunnelControls = document.getElementById(`tunnel-controls-${clientName}`);
+                const tunnelControls = document.getElementById(`tunnel-controls-${serverName}`);
                 if (tunnelControls) {
                     tunnelControls.classList.add('enabled');
                 }
                 
                 // Désactiver le bouton d'envoi de clé
-                const sendKeyButton = clientRow.querySelector('.send-key-button');
+                const sendKeyButton = serverRow.querySelector('.send-key-button');
                 if (sendKeyButton) {
                     sendKeyButton.disabled = true;
                 }
             }
+        }
+
+        function startTunnel(clientIP) {
+            fetch(`/api/start_tunnel?ip=${clientIP}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        document.getElementById(`status-${clientIP}`).textContent = 'Actif';
+                    } else {
+                        alert('Erreur: ' + data.error);
+                    }
+                });
+        }
+
+        function stopTunnel(clientIP) {
+            fetch(`/api/stop_tunnel?ip=${clientIP}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        document.getElementById(`status-${clientIP}`).textContent = 'Inactif';
+                    } else {
+                        alert('Erreur: ' + data.error);
+                    }
+                });
         }
     </script>
 </body>
