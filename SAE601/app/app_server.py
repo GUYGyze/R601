@@ -232,5 +232,29 @@ def api_send_server_key():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500  # Capture les erreurs
 
+@app.route('/api/start_tunnel', methods=['GET'])
+def start_tunnel():
+    client_ip = request.args.get('ip')
+    if not client_ip:
+        return jsonify({"success": False, "error": "IP du client manquante"}), 400
+    
+    try:
+        subprocess.run(["wg-quick", "up", WG_INTERFACE], check=True)
+        return jsonify({"success": True})
+    except subprocess.CalledProcessError as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/stop_tunnel', methods=['GET'])
+def stop_tunnel():
+    client_ip = request.args.get('ip')
+    if not client_ip:
+        return jsonify({"success": False, "error": "IP du client manquante"}), 400
+    
+    try:
+        subprocess.run(["wg-quick", "down", WG_INTERFACE], check=True)
+        return jsonify({"success": True})
+    except subprocess.CalledProcessError as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
 if __name__ == '__main__':
     app.run(debug=True, host="0.0.0.0", port=5000)
