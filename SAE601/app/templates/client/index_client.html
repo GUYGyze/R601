@@ -69,6 +69,34 @@
                 <button onclick="createClientConfig()">Créer la configuration</button>
                 <button onclick="sendPublicKey()">Envoyer la clé publique</button>
         </div>
+	<h2>Statut du Tunnel</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>IP du serveur</th>
+                <th>Statut</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody id="tunnel-status">
+            <tr>
+                <td>192.168.1.10</td>
+                <td id="status-192.168.1.10">Inactif</td>
+                <td>
+                    <button onclick="startTunnel('192.168.1.10')">Activer</button>
+                    <button onclick="stopTunnel('192.168.1.10')">Arrêter</button>
+                </td>
+            </tr>
+            <tr>
+                <td>192.168.1.20</td>
+                <td id="status-192.168.1.20">Actif</td>
+                <td>
+                    <button onclick="startTunnel('192.168.1.20')">Activer</button>
+                    <button onclick="stopTunnel('192.168.1.20')">Arrêter</button>
+                </td>
+            </tr>
+        </tbody>
+    </table>
     </div>
 
     <script>
@@ -156,7 +184,44 @@
             			alert('Erreur: ' + data.error);
         		}
     		});
-	} 
+	}
+	function updateTunnelStatus(serverIp) {
+            const tbody = document.getElementById('tunnel-status');
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${serverIp}</td>
+                <td id="status-${serverIp}">Inactif</td>
+                <td>
+                    <button onclick="startTunnel('${serverIp}')">Activer</button>
+                    <button onclick="stopTunnel('${serverIp}')">Arrêter</button>
+                </td>
+            `;
+            tbody.appendChild(row);
+        }
+
+        function startTunnel(serverIp) {
+            fetch(`/api/start_tunnel?ip=${serverIp}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        document.getElementById(`status-${serverIp}`).textContent = 'Actif';
+                    } else {
+                        alert('Erreur: ' + data.error);
+                    }
+                });
+        }
+
+        function stopTunnel(serverIp) {
+            fetch(`/api/stop_tunnel?ip=${serverIp}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        document.getElementById(`status-${serverIp}`).textContent = 'Inactif';
+                    } else {
+                        alert('Erreur: ' + data.error);
+                    }
+                });
+        }
    </script>
 </body>
 </html>
