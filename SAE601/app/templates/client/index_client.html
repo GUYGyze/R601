@@ -106,8 +106,8 @@
         }
 
         function createClientConfig() {
+
 	    const serverEndpoint = document.getElementById('server_endpoint').value;
-	    addServer(serverEndpoint);
             const clientName = document.getElementById('client_name').value;
             const clientIp = document.getElementById('client_ip').value;
 	    const clientEndpoint = document.getElementById('client_endpoint').value;
@@ -116,6 +116,12 @@
 	    const clientListenPort = document.getElementById('client_listen_port').value;
             const privateKey = document.getElementById('client_private_key').textContent;
             const publicKey = document.getElementById('client_public_key').textContent;
+
+	    // Vérifie si l'IP existe déjà
+            if (document.getElementById(`status-${serverEndpoint}`)) {
+                alert("Le serveur avec cette IP existe déjà !");
+                return;
+            }
 
             if (!clientName || !clientIp || !serverIp || !serverEndpoint || !clientListenPort || !clientEndpoint || !serverPort || privateKey === '-' || publicKey === '-') {
                 alert('Veuillez remplir tous les champs et générer des clés');
@@ -145,6 +151,7 @@
                     alert('Erreur: ' + data.error);
                 }
             });
+	    addServer(serverEndpoint);
         }
 	function sendPublicKey() {
     		const serverEndpoint = document.getElementById('server_endpoint').value;
@@ -172,12 +179,6 @@
 
 	function addServer(ip) {
             let tableBody = document.getElementById("tunnel-status");
-            
-            // Vérifie si l'IP existe déjà
-            if (document.getElementById(`status-${ip}`)) {
-                alert("Le serveur avec cette IP existe déjà !");
-                return;
-            }
 
             // Crée une nouvelle ligne
             let row = document.createElement("tr");
