@@ -162,14 +162,17 @@ def api_create_client_config():
         
         client_name = request.form.get('client_name')
         client_ip = request.form.get('client_ip')
+        client_endpoint = request.form.get('client_endpoint')
+        client_listen_port = request.form.get('client_listen_port')
+        
         server_ip = request.form.get('server_ip')
+        server_endpoint = request.form.get('server_endpoint')
         server_port = request.form.get('server_port')
+        
         private_key = request.form.get('client_private_key')
         public_key = request.form.get('client_public_key')
-        client_listen_port = request.form.get('client_listen_port')
-        server_endpoint = request.form.get('server_endpoint')
 
-        if not all([client_name, client_ip, server_ip, server_port, private_key, public_key]):
+        if not all([client_name, client_ip, server_ip, server_port, client_endpoint, server_endpoint, client_listen_port, private_key, public_key]):
             return jsonify({"success": False, "error": "Tous les champs sont requis"}), 400
 
         config_template = """[Interface]
@@ -190,7 +193,8 @@ AllowedIPs = 0.0.0.0/0
             server_ip=server_ip,
             server_port=server_port,
             client_listen_port=client_listen_port,
-            server_endpoint=server_endpoint
+            server_endpoint=server_endpoint,
+            client_endpoint=client_endpoint
         )
 
         config_path = os.path.join(WG_CONFIG_PATH, f"{client_name}.conf")
