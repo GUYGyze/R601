@@ -4,3 +4,4 @@ chmod 777 bash/requirements.sh
 # Attendre
 source sae_venv/bin/activate
 ./bash/requirements.sh
+cd app
