@@ -1,7 +1,9 @@
 # Client Wireguard
 
 En root
+
 chmod 777 run.sh
+
 source run.sh
 
 ------------
