@@ -81,13 +81,13 @@ On va faire des maquettes pour tester des choses.
 Cette technique permet de contourner le pare-feu, car les paquets ICMP sont souvent autorisés par défaut, tandis que les paquets UDP sont bloqués.
 5) Un tunnel WireGuard est monté au-dessus du tunnel ICMP
 
-    Une fois les paquets de montage du tunnel transmis avec succès entre les deux machines, le tunnel WireGuard est établi. Le trafic réel (données utilisateur) peut maintenant être acheminé à travers ce tunnel sécurisé.
-    Les paquets peuvent ensuite circuler normalement sur le tunnel WireGuard, en utilisant UDP pour la communication, et non plus ICMP. Le pare-feu, qui bloque UDP, n'a plus d'impact, car le tunnel est désormais fonctionnel.
+  Une fois les paquets de montage du tunnel transmis avec succès entre les deux machines, le tunnel WireGuard est établi. Le trafic réel (données utilisateur) peut maintenant être acheminé à travers ce tunnel sécurisé.
+  Les paquets peuvent ensuite circuler normalement sur le tunnel WireGuard, en utilisant UDP pour la communication, et non plus ICMP. Le pare-feu, qui bloque UDP, n'a plus d'impact, car le tunnel est désormais fonctionnel.
 
 Conclusion
 
-    Avant que le tunnel soit établi, tu utilises l'encapsulation ICMP pour faire passer les trames de montage à travers le pare-feu.
-    Une fois le tunnel WireGuard établi, la communication peut se faire normalement, sans avoir à passer par l'encapsulation ICMP.
+Avant que le tunnel soit établi, tu utilises l'encapsulation ICMP pour faire passer les trames de montage à travers le pare-feu.
+Une fois le tunnel WireGuard établi, la communication peut se faire normalement, sans avoir à passer par l'encapsulation ICMP.
 
 ### Pistes d'amélioration
 
