@@ -54,9 +54,10 @@ def receive_icmp_packet(process_function=None):
             print(f"Paquet ICMP reçu de {addr}")
             udp_data = extract_udp_from_icmp(packet)
             print(f"Données UDP extraites : {udp_data}")
-            client_public_key = udp_data.decode('utf-8').strip()
-            print(f"Clé publique reçue : {client_public_key}")
-            return client_public_key
+            server_public_key = udp_data.decode('utf-8').strip()
+            print(f"Clé publique reçue : {server_public_key}")
+            return server_public_key
+
 
             if process_function:
                 process_function(udp_data)
