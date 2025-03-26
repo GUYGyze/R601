@@ -12,4 +12,11 @@ echo "Télchargements des librairies en cours..."
 ./bash/requirements.sh
 cd app
 echo "Lancement de l'application..."
-python3 app_client.py
+echo 1 pour client et 2 pour serveur
+read choice
+if [ choice = 1 ]
+then
+    python3 app_client.py
+else
+    python3 app_server.py
+fi
