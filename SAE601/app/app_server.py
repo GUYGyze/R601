@@ -269,7 +269,7 @@ def send_server_key(client_ip):
     key_data = public_key.encode('utf-8')
 
     # 3) Envoyer via ICMP
-    send_icmp_packet(dest_ip, key_data, tag='KEY')
+    send_icmp_packet(client_ip, key_data, tag='KEY')
 
 # Routes Flask
 @app.route('/')
@@ -289,13 +289,13 @@ def api_generate_server_keys():
 @app.route('/api/send_public_key', methods=["POST"])
 def api_send_server_key():
     data = request.get_json()
+    dest_ip = data.get("dest_ip")
+
+    if not dest_ip:
+        return jsonify({"success": False, "error": "Aucune adresse IP fournie"}), 400  # Ajoute une vérification
+
     try:
-        dest_ip = data.get("dest_ip")
-    except:
-        return jsonify({"success": False, "error": "Aucune adresse IP fournie"}), 400
-    print(dest_ip)
-    try:
-        send_server_key(dest_ip)  
+        send_server_key(dest_ip)
         return jsonify({"success": True, "message": f"Clé publique envoyée en ICMP vers {dest_ip}"})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500  # Capture les erreurs
