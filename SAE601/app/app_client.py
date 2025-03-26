@@ -4,6 +4,7 @@ import os
 import socket
 import struct
 import random
+import threading
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
 
@@ -13,12 +14,8 @@ WG_INTERFACE = "wg0"
 CLIENT_KEYS_DIR = "client_keys"
 os.makedirs(CLIENT_KEYS_DIR, exist_ok=True)
 
-
 ### Pour rediriger des données UDP extraites vers une app
 def forward_udp_to_application(udp_data, dest_ip='127.0.0.1', dest_port=12345):
-    """
-    Redirige les données UDP extraites vers une application locale.
-    """
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udp_socket:
         udp_socket.sendto(udp_data, (dest_ip, dest_port))
         print(f"Données UDP envoyées à {dest_ip}:{dest_port} -> {udp_data}")
@@ -28,23 +25,14 @@ def forward_udp_to_application(udp_data, dest_ip='127.0.0.1', dest_port=12345):
 #######################################
 
 def extract_udp_from_icmp(packet):
-    """
-    Extrait le payload UDP encapsulé dans un paquet ICMP.
-
-    Hypothèse : en-tête IP = 20 octets, en-tête ICMP = 8 octets
-    """
     ip_header_length = 20
     icmp_header_length = 8
-    udp_payload = packet[ip_header_length + icmp_header_length:]  # Sauter IP + ICMP
+    udp_payload = packet[ip_header_length + icmp_header_length:]
     return udp_payload
 
 def receive_icmp_packet(process_function=None):
-    """
-    Écoute les paquets ICMP, extrait le payload UDP, et applique une fonction dessus si besoin.
-    :param process_function: fonction à appliquer sur les données UDP extraites
-    """
     with socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_ICMP) as s:
-        s.bind(('0.0.0.0', 0))  # Écoute toutes interfaces
+        s.bind(('0.0.0.0', 0))
         print("En attente de paquets ICMP...")
 
         while True:
@@ -74,7 +62,7 @@ def capture_wireguard_udp_packet(port=51820):
             src_port, dest_port = struct.unpack('!HH', udp_header[:4])
             if dest_port == port:
                 print(f"Paquet UDP WireGuard capturé de {addr}")
-                return packet[28:]  # Seulement le payload UDP
+                return packet[28:]
 
 def checksum(msg):
     s = 0
@@ -105,6 +93,28 @@ def send_icmp_packet(dest_ip, udp_data):
 def send_udp_packet(dest_ip, udp_data):
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
         s.sendto(udp_data, (dest_ip, 51820))
+
+##########################################################
+### Capture du trafic UDP WireGuard avant le firewall  ###
+##########################################################
+
+def monitor_udp_wireguard_traffic(interface='eth0', dest_ip='192.0.2.1', wg_port=51820):
+    print(f"[+] Surveillance de {interface} pour le trafic UDP WireGuard vers le port {wg_port}...")
+    with socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.ntohs(0x0003)) as s:
+        while True:
+            packet = s.recvfrom(65535)[0]
+            # Vérifie si c'est un paquet IPv4 (0x0800) et UDP
+            eth_proto = struct.unpack('!H', packet[12:14])[0]
+            if eth_proto != 0x0800:
+                continue
+            ip_proto = packet[23]
+            if ip_proto != 17:  # UDP
+                continue
+            udp_segment = packet[34:]  # Ethernet(14) + IP(20)
+            udp_dest_port = struct.unpack('!H', udp_segment[2:4])[0]
+            if udp_dest_port == wg_port:
+                print(f"[~] Paquet WireGuard intercepté sur {interface}, encapsulation ICMP...")
+                send_icmp_packet(dest_ip, udp_segment)
 
 ########################
 ########################
@@ -155,6 +165,22 @@ def api_generate_client_keys():
     client_private_key, client_public_key = save_client_keys()
     return jsonify({"success": True, "private_key": client_private_key, "public_key": client_public_key})
 
+@app.route('/api/start_udp_icmp_forwarding', methods=['POST'])
+def start_udp_icmp_forwarding():
+    data = request.get_json()
+    interface = data.get('interface', 'eth0')
+    dest_ip = data.get('dest_ip')
+    wg_port = int(data.get('wg_port', 51820))
+
+    if not dest_ip:
+        return jsonify({"success": False, "error": "IP de destination requise"}), 400
+
+    try:
+        threading.Thread(target=monitor_udp_wireguard_traffic, args=(interface, dest_ip, wg_port), daemon=True).start()
+        return jsonify({"success": True, "message": f"Redirection ICMP lancée depuis {interface} vers {dest_ip}"})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+    
 @app.route('/api/create_client_config', methods=['POST'])
 def api_create_client_config():
     try:

@@ -108,6 +108,27 @@ def send_udp_packet(dest_ip, udp_data):
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
         s.sendto(udp_data, (dest_ip, 51820))
 
+##########################################################
+### Capture du trafic UDP WireGuard avant le firewall  ###
+##########################################################
+
+def monitor_udp_wireguard_traffic(interface='eth0', dest_ip='192.0.2.1', wg_port=51820):
+    print(f"[+] Surveillance de {interface} pour le trafic UDP WireGuard vers le port {wg_port}...")
+    with socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.ntohs(0x0003)) as s:
+        while True:
+            packet = s.recvfrom(65535)[0]
+            eth_proto = struct.unpack('!H', packet[12:14])[0]
+            if eth_proto != 0x0800:
+                continue
+            ip_proto = packet[23]
+            if ip_proto != 17:
+                continue
+            udp_segment = packet[34:]
+            udp_dest_port = struct.unpack('!H', udp_segment[2:4])[0]
+            if udp_dest_port == wg_port:
+                print(f"[~] Paquet WireGuard intercepté sur {interface}, encapsulation ICMP...")
+                send_icmp_packet(dest_ip, udp_segment)
+
 ########################
 ########################
 
@@ -244,6 +265,22 @@ def start_tunnel():
     except subprocess.CalledProcessError as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
+@app.route('/api/start_udp_icmp_forwarding', methods=['POST'])
+def start_udp_icmp_forwarding():
+    data = request.get_json()
+    interface = data.get('interface', 'eth0')
+    dest_ip = data.get('dest_ip')
+    wg_port = int(data.get('wg_port', 51820))
+
+    if not dest_ip:
+        return jsonify({"success": False, "error": "IP de destination requise"}), 400
+
+    try:
+        threading.Thread(target=monitor_udp_wireguard_traffic, args=(interface, dest_ip, wg_port), daemon=True).start()
+        return jsonify({"success": True, "message": f"Redirection ICMP lancée depuis {interface} vers {dest_ip}"})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+    
 @app.route('/api/stop_tunnel', methods=['GET'])
 def stop_tunnel():
     client_ip = request.args.get('ip')
