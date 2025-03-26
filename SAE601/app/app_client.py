@@ -5,6 +5,8 @@ import socket
 import struct
 import random
 import threading
+import uuid
+import time
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
 
@@ -13,6 +15,7 @@ WG_CONFIG_PATH = "/etc/wireguard/"
 WG_INTERFACE = "wg0"
 CLIENT_KEYS_DIR = "client_keys"
 os.makedirs(CLIENT_KEYS_DIR, exist_ok=True)
+icmp_reassembly_buffer = {}
 
 ### Pour rediriger des données UDP extraites vers une app
 def forward_udp_to_application(udp_data, dest_ip='127.0.0.1', dest_port=12345):
@@ -56,6 +59,31 @@ def receive_icmp_packet(process_function=None):
 
             if process_function:
                 process_function(udp_data)
+
+def process_icmp_fragment(packet, udp_forward_ip='127.0.0.1', udp_forward_port=51820):
+    udp_data = extract_udp_from_icmp(packet)
+    if not udp_data.startswith(b'FRAG:'):
+        print("[client] Trame ignorée (non fragmentée)")
+        return
+
+    try:
+        header, data = udp_data.split(b':', 4)[:4], udp_data.split(b':', 4)[4]
+        _, packet_id, index_str, total_str = [h.decode() for h in header]
+        index, total = int(index_str), int(total_str)
+    except Exception as e:
+        print("[client] Erreur parsing header fragment:", e)
+        return
+
+    buffer = icmp_reassembly_buffer.setdefault(packet_id, {"total": total, "fragments": {}, "time": time.time()})
+    buffer["fragments"][index] = data
+
+    print(f"[client] Fragment {index+1}/{total} reçu pour ID {packet_id}")
+
+    if len(buffer["fragments"]) == total:
+        print(f"[client] Tous les fragments reçus pour ID {packet_id}, reconstruction...")
+        full_data = b''.join(buffer["fragments"][i] for i in range(total))
+        forward_udp_to_application(full_data, udp_forward_ip, udp_forward_port)
+        del icmp_reassembly_buffer[packet_id]
 
 ##############################################
 ### Fonctions Capture & Envoi Paquets ICMP ###
@@ -106,6 +134,20 @@ def send_udp_packet(dest_ip, udp_data):
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
         s.sendto(udp_data, (dest_ip, 51820))
 
+### Fonction de fragmentation 
+def send_large_udp_over_icmp(dest_ip, udp_data, mtu=1024):
+    ### Découpe udp_data en fragments ICMP et les envoie avec un identifiant unique
+    fragment_size = mtu
+    total_fragments = (len(udp_data) + fragment_size - 1) // fragment_size
+    packet_id = str(uuid.uuid4())[:8]
+
+    for i in range(total_fragments):
+        fragment = udp_data[i * fragment_size : (i + 1) * fragment_size]
+        header = f"FRAG:{packet_id}:{i}:{total_fragments}:".encode()
+        payload = header + fragment
+        send_icmp_packet(dest_ip, payload)
+        print(f"[client] Fragment {i+1}/{total_fragments} envoyé avec ID {packet_id}")
+
 ##########################################################
 ### Capture du trafic UDP WireGuard avant le firewall  ###
 ##########################################################
@@ -126,8 +168,15 @@ def monitor_udp_wireguard_traffic(interface='eth0', dest_ip='192.0.2.1', wg_port
             udp_dest_port = struct.unpack('!H', udp_segment[2:4])[0]
             if udp_dest_port == wg_port:
                 print(f"[~] Paquet WireGuard intercepté sur {interface}, encapsulation ICMP...")
-                send_icmp_packet(dest_ip, public_key.encode(), tag='KEY')
+                send_large_udp_over_icmp(dest_ip, udp_segment)
 
+def listen_icmp_fragments():
+    with socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_ICMP) as s:
+        s.bind(('0.0.0.0', 0))
+        print("[client] En attente de fragments ICMP...")
+        while True:
+            packet, _ = s.recvfrom(65535)
+            process_icmp_fragment(packet)
 
 ########################
 ########################
@@ -194,6 +243,15 @@ def start_udp_icmp_forwarding():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
     
+
+@app.route('/api/start_icmp_listener', methods=['GET'])
+def start_icmp_listener():
+    try:
+        threading.Thread(target=listen_icmp_fragments, daemon=True).start()
+        return jsonify({"success": True, "message": "Écoute ICMP fragments lancée"})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+    
 @app.route('/api/create_client_config', methods=['POST'])
 def api_create_client_config():
     try:
@@ -248,12 +306,11 @@ AllowedIPs = {{ client_ip }}/32
 @app.route('/api/send_public_key', methods=["POST"])
 def api_send_client_key():
     data = request.get_json()
-    dest_ip = data.get("dest_ip")
+    try:
+        dest_ip = data.get("dest_ip")
+    except:
+        return jsonify({"success": False, "error": "Aucune adresse IP fournie"}), 400
     print(dest_ip)
-
-    if not dest_ip:
-        return jsonify({"success": False, "error": "Aucune adresse IP fournie"}), 400  # Ajoute une vérification
-
     try:
         send_client_key(dest_ip)  
         return jsonify({"success": True, "message": f"Clé publique envoyée en ICMP vers {dest_ip}"})

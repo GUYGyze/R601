@@ -4,6 +4,8 @@ import os
 import socket
 import struct
 import random
+import time
+import uuid
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
 
@@ -13,14 +15,13 @@ WG_INTERFACE = "wg0"
 SERVER_KEYS_DIR = "server_keys"
 SERVER_PRIVATE_KEY_PATH = os.path.join(SERVER_KEYS_DIR, "server_private_key")
 SERVER_PUBLIC_KEY_PATH = os.path.join(SERVER_KEYS_DIR, "server_public_key")
+icmp_reassembly_buffer = {}
 
 os.makedirs(SERVER_KEYS_DIR, exist_ok=True)
 
 ### Pour rediriger des données UDP extraites vers une app
 def forward_udp_to_application(udp_data, dest_ip='127.0.0.1', dest_port=12345):
-    """
-    Redirige les données UDP extraites vers une application locale.
-    """
+    ###Redirige les données UDP extraites vers une application locale.
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udp_socket:
         udp_socket.sendto(udp_data, (dest_ip, dest_port))
         print(f"Données UDP envoyées à {dest_ip}:{dest_port} -> {udp_data}")
@@ -30,21 +31,14 @@ def forward_udp_to_application(udp_data, dest_ip='127.0.0.1', dest_port=12345):
 #######################################
 
 def extract_udp_from_icmp(packet):
-    """
-    Extrait le payload UDP encapsulé dans un paquet ICMP.
-
-    Hypothèse : en-tête IP = 20 octets, en-tête ICMP = 8 octets
-    """
+    ### Extrait le payload UDP encapsulé dans un paquet ICMP.
+    ### Hypothèse : en-tête IP = 20 octets, en-tête ICMP = 8 octets
     ip_header_length = 20
     icmp_header_length = 8
     udp_payload = packet[ip_header_length + icmp_header_length:]  # Sauter IP + ICMP
     return udp_payload
 
 def receive_icmp_packet(process_function=None):
-    """
-    Écoute les paquets ICMP, extrait le payload UDP, et applique une fonction dessus si besoin.
-    :param process_function: fonction à appliquer sur les données UDP extraites
-    """
     with socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_ICMP) as s:
         s.bind(('0.0.0.0', 0))  # Écoute toutes interfaces
         print("En attente de paquets ICMP...")
@@ -68,6 +62,37 @@ def receive_icmp_packet(process_function=None):
 
             if process_function:
                 process_function(udp_data)
+
+### Fonction de traitement fragmentation 
+def process_icmp_fragment(packet, udp_forward_ip='127.0.0.1', udp_forward_port=51820):
+    udp_data = extract_udp_from_icmp(packet)
+    if not udp_data.startswith(b'FRAG:'):
+        print("[serveur] Trame ignorée (non fragmentée)")
+        return
+
+    try:
+        header, data = udp_data.split(b':', 4)[:4], udp_data.split(b':', 4)[4]
+        _, packet_id, index_str, total_str = [h.decode() for h in header]
+        index, total = int(index_str), int(total_str)
+    except Exception as e:
+        print("[serveur] Erreur parsing header fragment:", e)
+        return
+
+    buffer = icmp_reassembly_buffer.setdefault(packet_id, {"total": total, "fragments": {}, "time": time.time()})
+    buffer["fragments"][index] = data
+
+    print(f"[serveur] Fragment {index+1}/{total} reçu pour ID {packet_id}")
+
+    # Vérifier si tous les fragments sont là
+    if len(buffer["fragments"]) == total:
+        print(f"[serveur] Tous les fragments reçus pour ID {packet_id}, reconstruction...")
+        full_data = b''.join(buffer["fragments"][i] for i in range(total))
+
+        # Envoi au démon WireGuard local
+        forward_udp_to_application(full_data, udp_forward_ip, udp_forward_port)
+
+        # Nettoyage
+        del icmp_reassembly_buffer[packet_id]
 
 ##############################################
 ### Fonctions Capture & Envoi Paquets ICMP ###
@@ -118,6 +143,18 @@ def send_udp_packet(dest_ip, udp_data):
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
         s.sendto(udp_data, (dest_ip, 51820))
 
+def send_large_udp_over_icmp(dest_ip, udp_data, mtu=1024):
+    fragment_size = mtu
+    total_fragments = (len(udp_data) + fragment_size - 1) // fragment_size
+    packet_id = str(uuid.uuid4())[:8]
+
+    for i in range(total_fragments):
+        fragment = udp_data[i * fragment_size : (i + 1) * fragment_size]
+        header = f"FRAG:{packet_id}:{i}:{total_fragments}:".encode()
+        payload = header + fragment
+        send_icmp_packet(dest_ip, payload)
+        print(f"[serveur] Fragment {i+1}/{total_fragments} envoyé avec ID {packet_id}")
+        
 ##########################################################
 ### Capture du trafic UDP WireGuard avant le firewall  ###
 ##########################################################
