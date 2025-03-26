@@ -1,0 +1,49 @@
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0" version="26.1.3">
+  <diagram name="Page-1" id="Euz_89842Op8s6j0UW8T">
+    <mxGraphModel dx="1674" dy="722" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" background="none" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="SQ1hp5r7hqD9bGJPRtN2-1" value="" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;align=center;" vertex="1" parent="1">
+          <mxGeometry x="100" y="300" width="150" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="SQ1hp5r7hqD9bGJPRtN2-2" value="&lt;div&gt;PC1 &lt;br&gt;&lt;/div&gt;&lt;div&gt;192.168.1.111&lt;/div&gt;&lt;div&gt;10.0.0.1&lt;br&gt;&lt;/div&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="127.5" y="345" width="95" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="SQ1hp5r7hqD9bGJPRtN2-5" value="" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;align=center;" vertex="1" parent="1">
+          <mxGeometry x="550" y="300" width="150" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="SQ1hp5r7hqD9bGJPRtN2-6" value="&lt;div&gt;PC2&lt;br&gt;&lt;/div&gt;&lt;div&gt;192.168.1.112&lt;/div&gt;&lt;div&gt;10.0.0.2&lt;br&gt;&lt;/div&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="577.5" y="345" width="95" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="SQ1hp5r7hqD9bGJPRtN2-7" value="&lt;div&gt;Firewall Fortigate&lt;/div&gt;&lt;div&gt;192.168.1.99&lt;br&gt;&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="310" y="70" width="176" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="SQ1hp5r7hqD9bGJPRtN2-8" value="" style="endArrow=classic;html=1;rounded=0;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="SQ1hp5r7hqD9bGJPRtN2-1" target="SQ1hp5r7hqD9bGJPRtN2-7">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="390" y="400" as="sourcePoint" />
+            <mxPoint x="440" y="350" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="SQ1hp5r7hqD9bGJPRtN2-9" value="" style="endArrow=classic;html=1;rounded=0;entryX=1;entryY=1;entryDx=0;entryDy=0;exitX=0.5;exitY=0;exitDx=0;exitDy=0;" edge="1" parent="1" source="SQ1hp5r7hqD9bGJPRtN2-5" target="SQ1hp5r7hqD9bGJPRtN2-7">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="390" y="400" as="sourcePoint" />
+            <mxPoint x="440" y="350" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="SQ1hp5r7hqD9bGJPRtN2-11" value="" style="shape=flexArrow;endArrow=classic;startArrow=classic;html=1;rounded=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" edge="1" parent="1" source="SQ1hp5r7hqD9bGJPRtN2-1" target="SQ1hp5r7hqD9bGJPRtN2-5">
+          <mxGeometry width="100" height="100" relative="1" as="geometry">
+            <mxPoint x="260" y="320" as="sourcePoint" />
+            <mxPoint x="460" y="330" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="400" y="160" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="SQ1hp5r7hqD9bGJPRtN2-14" value="&lt;div&gt;Tunnel Wireguard&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;10.0.0.0/24&lt;br&gt;&lt;/div&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="318" y="290" width="160" height="130" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
