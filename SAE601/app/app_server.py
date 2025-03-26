@@ -53,11 +53,18 @@ def receive_icmp_packet(process_function=None):
             packet, addr = s.recvfrom(65535)
             print(f"Paquet ICMP reçu de {addr}")
             udp_data = extract_udp_from_icmp(packet)
-            print(f"Données UDP extraites : {udp_data}")
-            server_public_key = udp_data.decode('utf-8').strip()
-            print(f"Clé publique reçue : {server_public_key}")
-            return server_public_key
 
+            if not udp_data.startswith(b'KEY:'):
+                print("[!] Trame ICMP ignorée : tag non reconnu")
+                continue
+
+            payload = udp_data[4:]
+            try:
+                server_public_key = payload.decode('utf-8').strip()
+                return server_public_key
+            except UnicodeDecodeError:
+                print("[!] Erreur de décodage de la clé publique")
+                continue
 
             if process_function:
                 process_function(udp_data)
@@ -100,7 +107,9 @@ def create_icmp_packet(udp_data):
     header = struct.pack('!BBHHH', icmp_type, icmp_code, checksum_value, identifier, sequence_number)
     return header + payload
 
-def send_icmp_packet(dest_ip, udp_data):
+def send_icmp_packet(dest_ip, udp_data, tag=None):
+    if tag:
+        udp_data = tag.encode() + b':' + udp_data
     packet = create_icmp_packet(udp_data)
     with socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_ICMP) as s:
         s.sendto(packet, (dest_ip, 0))
@@ -223,7 +232,7 @@ def send_server_key(client_ip):
     key_data = public_key.encode('utf-8')
 
     # 3) Envoyer via ICMP
-    send_icmp_packet(client_ip, key_data)
+    send_icmp_packet(dest_ip, key_data, tag='KEY')
 
 # Routes Flask
 @app.route('/')
