@@ -1,5 +1,5 @@
 #!/bin/bash
-sudo apt update && sudo apt install python3 python3-pip wireguard -y
+sudo apt update && sudo apt install python3 python3-pip
 chmod 777 bash/create_venv.sh
 chmod 777 bash/requirements.sh
 echo "Création de la venv en cours..."
