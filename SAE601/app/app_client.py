@@ -184,7 +184,7 @@ Address = {{ client_ip }}/24
 [Peer]
 PublicKey = {{ server_public_key }}
 Endpoint = {{ server_endpoint }}:{{ server_port }}
-AllowedIPs = {{ client_ip }}/32
+AllowedIPs = {{ server_ip }}/32
 """
         config_content = render_template_string(
             config_template,
@@ -193,7 +193,8 @@ AllowedIPs = {{ client_ip }}/32
             server_port=server_port,
             client_listen_port=client_listen_port,
             server_endpoint=server_endpoint,
-            server_public_key=server_public_key
+            server_public_key=server_public_key,
+            server_ip=server_ip
         )
 
         config_path = os.path.join(WG_CONFIG_PATH, f"{WG_INTERFACE}.conf")
