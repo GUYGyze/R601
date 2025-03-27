@@ -1,4 +1,5 @@
 from flask import Flask, render_template, render_template_string, request, jsonify
+from scapy.all import IP, UDP, send
 import subprocess
 import os
 import socket
@@ -65,6 +66,12 @@ def receive_icmp_packet(process_function=None):
             if process_function:
                 process_function(udp_data)
 
+def inject_udp_to_wireguard(packet, src_ip, src_port, dst_ip="127.0.0.1", dst_port=51820):
+    """Construit un vrai paquet IP/UDP et l'envoie comme s'il venait du réseau"""
+    spoofed_pkt = IP(src=src_ip, dst=dst_ip) / UDP(sport=src_port, dport=dst_port) / packet
+    send(spoofed_pkt, verbose=False)
+    print(f"[inject] Paquet injecté dans la stack réseau depuis {src_ip}:{src_port}")
+
 ### Fonction de traitement fragmentation 
 def process_icmp_fragment(packet, udp_forward_ip='127.0.0.1', udp_forward_port=51820):
     udp_data = extract_udp_from_icmp(packet)
@@ -91,7 +98,7 @@ def process_icmp_fragment(packet, udp_forward_ip='127.0.0.1', udp_forward_port=5
         full_data = b''.join(buffer["fragments"][i] for i in range(total))
 
         # Envoi au démon WireGuard local
-        forward_udp_to_application(full_data, udp_forward_ip, udp_forward_port)
+        inject_udp_to_wireguard(full_data, src_ip='192.168.1.2', src_port=51820)
 
         # Nettoyage
         del icmp_reassembly_buffer[packet_id]

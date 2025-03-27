@@ -1,4 +1,5 @@
 from flask import Flask, render_template, render_template_string, request, jsonify
+from scapy.all import IP, UDP, send
 import subprocess
 import os
 import socket
@@ -83,8 +84,14 @@ def process_icmp_fragment(packet, udp_forward_ip='127.0.0.1', udp_forward_port=5
     if len(buffer["fragments"]) == total:
         print(f"[client] Tous les fragments reçus pour ID {packet_id}, reconstruction...")
         full_data = b''.join(buffer["fragments"][i] for i in range(total))
-        forward_udp_to_application(full_data, udp_forward_ip, udp_forward_port)
+        inject_udp_to_wireguard(full_data, src_ip="192.168.1.1", src_port=51820)
         del icmp_reassembly_buffer[packet_id]
+
+def inject_udp_to_wireguard(packet, src_ip, src_port, dst_ip="127.0.0.1", dst_port=51820):
+    from scapy.all import IP, UDP, send
+    spoofed_pkt = IP(src=src_ip, dst=dst_ip) / UDP(sport=src_port, dport=dst_port) / packet
+    send(spoofed_pkt, verbose=False)
+    print(f"[inject] Paquet injecté dans la stack réseau depuis {src_ip}:{src_port}")
 
 ##############################################
 ### Fonctions Capture & Envoi Paquets ICMP ###
