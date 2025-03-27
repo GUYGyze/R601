@@ -357,9 +357,9 @@ def start_tunnel():
         return jsonify({"success": False, "error": "IP du client manquante"}), 400
     
     try:
-        subprocess.run(["wg-quick", "up", WG_INTERFACE], check=True)
-        start_handshake_capture()
         start_handshake_receive()
+        start_handshake_capture()
+        subprocess.run(["wg-quick", "up", WG_INTERFACE], check=True)
         return jsonify({"success": True})
     except subprocess.CalledProcessError as e:
         return jsonify({"success": False, "error": str(e)}), 500

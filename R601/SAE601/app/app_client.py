@@ -47,43 +47,43 @@ def encapsulate_wireguard_handshake(packet, dest_ip):
     send_icmp_packet(dest_ip, packet)
     print(f"Handshake WireGuard encapsulé vers {dest_ip}")
 
-def capture_and_encapsulate_handshake(port=51820):
+def capture_and_encapsulate_handshake(port=51820, server_ip="192.168.2.110"):
     """
-    Capture les paquets de handshake WireGuard et les encapsule.
+    Capture les paquets de handshake WireGuard et les encapsule dans des paquets ICMP à destination du serveur.
     """
     with socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_UDP) as s:
         s.bind(('0.0.0.0', 0))
-        print(f"Surveillance des paquets de handshake WireGuard sur le port {port}")
-        
-        # Dictionnaire pour suivre les paquets déjà encapsulés
+        print(f"[+] Capture active sur port UDP {port}")
+
         encapsulated_packets = {}
-        
+
         while True:
             packet, addr = s.recvfrom(65535)
-            ip_header = packet[:20]
-            udp_header = packet[20:28]
-            src_port, dest_port = struct.unpack('!HH', udp_header[:4])
-            
-            if dest_port == port:
-                handshake_payload = packet[28:]
-                
-                # Générer un hash unique pour le paquet
-                packet_hash = hash(handshake_payload)
-                
-                # Vérifier si c'est un paquet de handshake et s'il n'a pas déjà été encapsulé
-                if is_wireguard_handshake(handshake_payload) and packet_hash not in encapsulated_packets:
-                    # Stocker le hash du paquet pour éviter les doublons
-                    encapsulated_packets[packet_hash] = True
-                    
-                    # Limiter la taille du dictionnaire pour éviter la croissance illimitée
-                    if len(encapsulated_packets) > 1000:
-                        encapsulated_packets.clear()
-                    
-                    # Choisir dynamiquement l'IP de destination
-                    dest_ip = addr[0]  # IP source du paquet UDP
-                    
-                    # Encapsuler le paquet de handshake
-                    encapsulate_wireguard_handshake(handshake_payload, dest_ip)
+            src_ip = addr[0]
+
+            # Ignorer les paquets venant de 127.0.0.1
+            if src_ip == "127.0.0.1":
+                continue
+
+            ip_header_len = (packet[0] & 0x0F) * 4
+            udp_header_len = 8
+            payload = packet[ip_header_len + udp_header_len:]
+
+            print(f"[DEBUG] Paquet UDP de {src_ip}, taille payload : {len(payload)}")
+
+            # Vérifier que le paquet est un handshake valide
+            if is_wireguard_handshake(payload):
+                packet_hash = hash(payload)
+
+                if packet_hash in encapsulated_packets:
+                    continue
+
+                encapsulated_packets[packet_hash] = True
+                if len(encapsulated_packets) > 1000:
+                    encapsulated_packets.clear()
+
+                print(f"[+] Handshake détecté ! Encapsulation vers {server_ip}")
+                encapsulate_wireguard_handshake(payload, server_ip)
                     
 def send_wireguard_handshake(handshake_data, port=51820, dest_ip='127.0.0.1'):
     """
@@ -115,11 +115,8 @@ def receive_icmp_handshake(process_function=None):
                 if process_function:
                     process_function(handshake_data)
 
-def start_handshake_capture():
-    """
-    Démarre un thread pour capturer les handshakes.
-    """
-    handshake_thread = threading.Thread(target=capture_and_encapsulate_handshake)
+def start_handshake_capture(server_ip="192.168.2.110"):
+    handshake_thread = threading.Thread(target=capture_and_encapsulate_handshake, args=(51820, server_ip))
     handshake_thread.daemon = True
     handshake_thread.start()
 
@@ -345,9 +342,9 @@ def start_tunnel():
         return jsonify({"success": False, "error": "IP du serveur manquante"}), 400
     
     try:
-        subprocess.run(["wg-quick", "up", WG_INTERFACE], check=True)
-        start_handshake_capture()
+        start_handshake_capture(server_ip=192.168.2.110)
         start_handshake_receive()
+        subprocess.run(["wg-quick", "up", WG_INTERFACE], check=True)
         return jsonify({"success": True})
     except subprocess.CalledProcessError as e:
         return jsonify({"success": False, "error": str(e)}), 500
