@@ -1,6 +1,6 @@
-# Modifications à apporter à app_client.py
+# Modifications à apporter à app_server.py
 
-# 1. Améliorez la fonction de détection des handshakes
+# 1. Améliorez la détection des handshakes (même fonction que pour le client)
 def is_wireguard_handshake(packet):
     """
     Détecte tous les paquets WireGuard avec une logique plus souple.
@@ -22,23 +22,20 @@ def is_wireguard_handshake(packet):
         print(f"[-] Erreur lors de la détection handshake : {e}")
         return False
 
-# 2. Améliorez la fonction de capture et encapsulation pour être plus agressive
-def capture_and_encapsulate_handshake(port=51820, server_ip=None):
+# 2. Améliorer la fonction de capture (encapsulation plus agressive)
+def capture_and_encapsulate_handshake(port=51820):
     """
-    Capture TOUS les paquets UDP destinés au port WireGuard et les encapsule.
+    Capture et encapsule tous les paquets UDP du port WireGuard.
     """
-    if not server_ip:
-        print("[-] ERREUR: Adresse IP du serveur non spécifiée")
-        return
-        
-    print(f"[+] Démarrage de la capture de paquets WireGuard pour le serveur {server_ip}")
-    
     with socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_UDP) as s:
         s.bind(('0.0.0.0', 0))
-        print(f"[+] Capture active sur port UDP {port}")
-
-        # Stocker temporairement les paquets vus récemment pour éviter les doublons
+        print(f"[+] Surveillance des paquets WireGuard sur le port {port}")
+        
+        # Pour éviter les doublons
         recent_packets = {}
+        
+        # Map des clients (source IP -> destination IP)
+        client_map = {}
         
         while True:
             try:
@@ -46,48 +43,54 @@ def capture_and_encapsulate_handshake(port=51820, server_ip=None):
                 
                 # Extraire les en-têtes IP et UDP
                 ip_header_len = (packet[0] & 0x0F) * 4
-                udp_header = packet[ip_header_len:ip_header_len+8]
+                src_ip = socket.inet_ntoa(packet[12:16])
+                dst_ip = socket.inet_ntoa(packet[16:20])
                 
-                # Vérifier si c'est du trafic sur le port WireGuard
+                # Ignorer localhost
+                if src_ip == "127.0.0.1":
+                    continue
+                
+                udp_header = packet[ip_header_len:ip_header_len+8]
                 if len(udp_header) >= 4:
                     src_port, dest_port = struct.unpack('!HH', udp_header[:4])
                     
-                    # Si c'est destiné au port WireGuard
+                    # Si c'est pour le port WireGuard
                     if dest_port == port:
-                        # Récupérer la charge utile UDP
+                        # Extraire la charge utile
                         payload = packet[ip_header_len + 8:]
                         
                         if not payload:
                             continue
                             
-                        # Générer une empreinte pour éviter les doublons
+                        # Eviter les doublons
                         packet_hash = hash(payload)
+                        if packet_hash in recent_packets:
+                            continue
+                            
+                        recent_packets[packet_hash] = True
+                        if len(recent_packets) > 100:
+                            oldest_key = next(iter(recent_packets))
+                            del recent_packets[oldest_key]
                         
-                        # Si nous n'avons pas encore vu ce paquet récemment
-                        if packet_hash not in recent_packets:
-                            # Encapsuler et envoyer le paquet
-                            print(f"[+] Encapsulation d'un paquet UDP vers {server_ip}, taille: {len(payload)}")
-                            encapsulate_wireguard_handshake(payload, server_ip)
-                            
-                            # Marquer ce paquet comme traité
-                            recent_packets[packet_hash] = True
-                            
-                            # Limiter la taille du dictionnaire
-                            if len(recent_packets) > 100:
-                                oldest_key = next(iter(recent_packets))
-                                del recent_packets[oldest_key]
+                        # Mémoriser le mapping client -> serveur
+                        client_map[src_ip] = dst_ip
+                        
+                        # Encapsuler et envoyer à la source
+                        # (on envoie à la source car c'est elle qui a initié la connexion)
+                        print(f"[+] Encapsulation d'un paquet UDP vers {src_ip}")
+                        encapsulate_wireguard_handshake(payload, src_ip)
             except Exception as e:
-                print(f"[-] Erreur de capture: {e}")
+                print(f"[-] Erreur de capture UDP: {e}")
                 continue
 
-# 3. Améliorer la fonction receive_icmp_handshake pour être plus tolérante
+# 3. Améliorer la réception et réinjection ICMP
 def receive_icmp_handshake():
     """
-    Écoute les paquets ICMP et réinjecte tout payload potentiellement WireGuard.
+    Reçoit les paquets ICMP et réinjecte les payloads WireGuard.
     """
     with socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_ICMP) as s:
         s.bind(('0.0.0.0', 0))
-        print("[+] En attente de paquets ICMP pour WireGuard...")
+        print("[+] En attente de paquets ICMP WireGuard...")
 
         while True:
             try:
@@ -101,48 +104,47 @@ def receive_icmp_handshake():
                 
                 if len(payload) < 4:
                     continue
-                    
-                # Tenter d'analyser comme un paquet WireGuard
+                
+                # Essayer d'identifier un paquet WireGuard
                 try:
                     message_type = struct.unpack("!I", payload[:4])[0]
                     if message_type in [1, 2, 3, 4]:
-                        print(f"[+] Paquet ICMP reçu de {src_ip} contenant un message WireGuard type {message_type}")
+                        print(f"[+] Paquet ICMP reçu de {src_ip} contenant WireGuard type {message_type}")
+                        
                         # Réinjecter dans WireGuard local
                         send_wireguard_handshake(payload)
                         print(f"[+] Paquet réinjecté localement")
                 except:
-                    # Ce n'est pas un paquet WireGuard
                     continue
             except Exception as e:
-                print(f"[-] Erreur lors de la réception ICMP: {e}")
+                print(f"[-] Erreur ICMP: {e}")
                 continue
 
-# 4. Modifiez la route de démarrage du tunnel pour s'assurer que l'ordre est correct
+# 4. Modifier la route start_tunnel pour s'assurer que l'ordre est correct
 @app.route('/api/start_tunnel', methods=['GET'])
 def start_tunnel():
-    server_ip = request.args.get('ip')
-    if not server_ip:
-        return jsonify({"success": False, "error": "IP du serveur manquante"}), 400
+    client_ip = request.args.get('ip')
+    if not client_ip:
+        return jsonify({"success": False, "error": "IP du client manquante"}), 400
     
     try:
-        # 1. Démarrer d'abord la capture des handshakes
-        print(f"[+] Démarrage de la capture des handshakes ICMP pour le serveur {server_ip}")
+        # 1. Démarrer d'abord les threads de capture
+        print(f"[+] Démarrage des captures ICMP pour {client_ip}")
         
-        # Démarrer thread de réception ICMP
+        # Thread de réception ICMP
         receive_thread = threading.Thread(target=receive_icmp_handshake)
         receive_thread.daemon = True
         receive_thread.start()
         
-        # Démarrer thread de capture et encapsulation
-        capture_thread = threading.Thread(target=capture_and_encapsulate_handshake, 
-                                         args=(51820, server_ip))
+        # Thread de capture et encapsulation
+        capture_thread = threading.Thread(target=capture_and_encapsulate_handshake)
         capture_thread.daemon = True
         capture_thread.start()
         
         # 2. Attendre un peu pour s'assurer que les threads sont actifs
         time.sleep(1)
         
-        # 3. Ensuite démarrer le tunnel WireGuard
+        # 3. Démarrer le tunnel WireGuard
         print(f"[+] Démarrage du tunnel WireGuard")
         subprocess.run(["wg-quick", "up", WG_INTERFACE], check=True)
         
