@@ -43,16 +43,39 @@ Silencieux par défaut
 
 
 RAPPELS UDP & ICMP
+
 UDP
 
+Définition protocole UDP
+Comment il est construit
+à quoi il sert
+
+UDP est aussi un protocole de communication
 Sans connexion : Contrairement à TCP, UDP n'établit pas de session entre l'émetteur et le récepteur avant d'envoyer des données.
+Il va transporter les données vers un hôte distant sans chercher à savoir si l'hôte de destination a bien reçu l'ensemble des données.
     • Rapide et léger : Il ne gère pas la correction d’erreurs ni le contrôle de flux, ce qui réduit la latence.
     • Pas de garantie de livraison : Les paquets peuvent être perdus, dupliqués ou reçus dans le désordre.
     • Encapsulation simple : Chaque message UDP est encapsulé directement dans un datagramme IP.
-
 Contournement des pare-feu
 Certains pare-feu bloquent les paquets UDP/TCP mais laissent passer les requêtes ICMP (notamment les pings).
 En encapsulant UDP dans ICMP, on peut faire transiter du trafic sous une forme souvent autorisée.
+
+ICMP 
+
+Définition protocole ICMP
+Comment il est construit
+à quoi il sert
+
+C'est un protocole de la couche réseau du modèle OSI, utilisé principalement pour la gestion des erreurs et les diagnostics dans les réseaux IP.
+Caractéristiques principales :
+    Messages de contrôle et de diagnostic : Il est utilisé pour transmettre des messages d'erreur et des informations de contrôle sur le réseau, par exemple lors de la détection d'une destination injoignable.
+    Exemples de commandes ICMP :
+        Ping : Utilise ICMP pour tester la connectivité entre deux hôtes.
+        Traceroute : Utilise ICMP pour suivre le chemin des paquets à travers un réseau.
+    Types de messages :
+        Echo request / Echo reply (pour le ping).
+        Destination Unreachable (lorsqu'un hôte ou un réseau est injoignable).
+        Time exceeded (lorsqu'un paquet a expiré dans le réseau).
 
 
 ALGORITHMES :
