@@ -7,6 +7,7 @@ import random
 import threading
 import uuid
 import time
+import threading
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
 
@@ -324,7 +325,15 @@ def start_tunnel():
         return jsonify({"success": False, "error": "IP du serveur manquante"}), 400
     
     try:
+        # Lance WireGuard
         subprocess.run(["wg-quick", "up", WG_INTERFACE], check=True)
+
+        # Une fois le tunnel actif, lance l'encapsulation ICMP des paquets WireGuard
+        # Tu peux ici choisir dynamiquement l'interface (ex: 'eth0') ou la mettre en dur
+        interface = "eth0"
+        wg_port = 51820
+        threading.Thread(target=monitor_udp_wireguard_traffic, args=(interface, server_ip, wg_port), daemon=True).start()
+
         return jsonify({"success": True})
     except subprocess.CalledProcessError as e:
         return jsonify({"success": False, "error": str(e)}), 500

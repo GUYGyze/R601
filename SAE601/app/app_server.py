@@ -6,6 +6,8 @@ import struct
 import random
 import time
 import uuid
+import threading
+
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
 
@@ -159,7 +161,7 @@ def send_large_udp_over_icmp(dest_ip, udp_data, mtu=1024):
 ### Capture du trafic UDP WireGuard avant le firewall  ###
 ##########################################################
 
-def monitor_udp_wireguard_traffic(interface='eth0', dest_ip='192.0.2.1', wg_port=51820):
+def monitor_udp_wireguard_traffic(interface='eth0', dest_ip='192.168.1.2', wg_port=4444):
     print(f"[+] Surveillance de {interface} pour le trafic UDP WireGuard vers le port {wg_port}...")
     with socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.ntohs(0x0003)) as s:
         while True:
@@ -302,15 +304,24 @@ def api_send_server_key():
 
 @app.route('/api/start_tunnel', methods=['GET'])
 def start_tunnel():
-    client_ip = request.args.get('ip')
-    if not client_ip:
-        return jsonify({"success": False, "error": "IP du client manquante"}), 400
+    server_ip = request.args.get('ip')
+    if not server_ip:
+        return jsonify({"success": False, "error": "IP du serveur manquante"}), 400
     
     try:
+        # Lance WireGuard
         subprocess.run(["wg-quick", "up", WG_INTERFACE], check=True)
+
+        # Une fois le tunnel actif, lance l'encapsulation ICMP des paquets WireGuard
+        # Tu peux ici choisir dynamiquement l'interface (ex: 'eth0') ou la mettre en dur
+        interface = "eth0"
+        wg_port = 51820
+        threading.Thread(target=monitor_udp_wireguard_traffic, args=(interface, server_ip, wg_port), daemon=True).start()
+
         return jsonify({"success": True})
     except subprocess.CalledProcessError as e:
         return jsonify({"success": False, "error": str(e)}), 500
+
 
 @app.route('/api/start_udp_icmp_forwarding', methods=['POST'])
 def start_udp_icmp_forwarding():
