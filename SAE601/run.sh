@@ -12,10 +12,10 @@ echo "Télchargements des librairies en cours..."
 ./bash/requirements.sh
 cd app
 echo "Lancement de l'application..."
-echo 1 pour client et 2 pour serveur
+echo "Choisissez 1(Client) ou 2(Serveur)"
 read choice
-if [ choice = 1 ]
-then
+
+if [ "$choice" = "1" ]; then
     python3 app_client.py
 else
     python3 app_server.py
