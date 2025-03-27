@@ -1,68 +1,125 @@
-PREPARATION ORAL : 
-
-INTRO :
-Bonjour a tous
-
-SOMMAIRE : 
-Nous allons commencer par vous presenter le projet avec le contexte et les objectifs, puis vous faire une petite demo.
-Ensuite on expliquera ce qu'est wireguard et pourquoi wireguard et pas un autre 
-Un petit rappel icmp et udp, les algorithmes crées et que font-ils
-Les différentes maquettes car on a eu quelques problemes avec les firewalls et pour finir les problemes rencontrés et les différentes solutions
-
 CONTEXTE & OBJECTIF : 
-Contexte : 
-On souhaite traverser le firewall de l’IUT
 
-Objectifs : 
-On veut traverser un pare-feu qui restreint l'usage d'UDP, soit totalement, soit sur les ports qui nous intéressent.
-On veut faire de l'UDP pour pouvoir monter un tunnel wireguard par dessus
-On ne veut pas encapsuler notre trafic dans TCP ou un protocole au dessus de TCP pour éviter le phénomène de "TCP Meltdown" 
-On suppose que le pare-feu laisse passer ICMP
-On va coder un outil qui encapsule UDP dans ICMP à l'aide du payload ICMP.
+
+
+
+
+Contexte et objectif
+
+
+
+
+
+    On veut traverser un pare-feu qui restreint l'usage d'UDP, soit totalement, soit sur les ports qui nous intéressent.
+
+
+    On veut faire de l'UDP pour pouvoir monter un tunnel wireguard par dessus
+
+
+    On ne veut pas encapsuler notre trafic dans TCP ou un protocole au dessus de TCP pour éviter le phénomène de "TCP Meltdown" (because wireguard: on veut pouvoir faire passer n'importe quoi dedans, notamment du TCP, SSH, etc)
+
+
+    On suppose que le pare-feu laisser passer ICMP, ou a minima, ICMP request et ICMP reply (ping).
+
+
+    On va coder un outil qui encapsule UDP dans ICMP à l'aide du payload ICMP.
+
+
+
+
+
+
 
 DEMO :
 
+
+
 QU'EST-CE QUE WIREGUARD ?
-WIREGUARD
-
-Un tunnel WireGuard est une connexion VPN (Virtual Private Network) chiffrée qui permet d'établir une communication sécurisée entre plusieurs machines via un réseau non sécurisé, comme Internet.
-    • Chaque pair possède une paire de clés (privée/publique).
-    • L'authentification et l'établissement du tunnel se font via une combinaison de ces clés, sans nécessité d'échange complexe comme avec TLS.
-Chaque pair possède une paire de clés (privée/publique).
-L'authentification et l'établissement du tunnel se font via une combinaison de ces clés, sans nécessité d'échange complexe comme avec TLS.
-
-Silencieux par défaut
-    Contrairement à d'autres VPN qui envoient régulièrement des signaux pour garder la connexion active, WireGuard reste inactif tant qu'aucune donnée n'est échangée.
-    Cela le rend difficile à détecter par des pare-feu, surtout avec l'utilisation du mode stealth.
 
 
-RAPPELS UDP & ICMP
-UDP
 
-Sans connexion : Contrairement à TCP, UDP n'établit pas de session entre l'émetteur et le récepteur avant d'envoyer des données.
-    • Rapide et léger : Il ne gère pas la correction d’erreurs ni le contrôle de flux, ce qui réduit la latence.
-    • Pas de garantie de livraison : Les paquets peuvent être perdus, dupliqués ou reçus dans le désordre.
-    • Encapsulation simple : Chaque message UDP est encapsulé directement dans un datagramme IP.
 
-Contournement des pare-feu
-Certains pare-feu bloquent les paquets UDP/TCP mais laissent passer les requêtes ICMP (notamment les pings).
-En encapsulant UDP dans ICMP, on peut faire transiter du trafic sous une forme souvent autorisée.
+RAPPELS UDP & ICMP : 
+
+
+
+
+
+UDP (User Datagram Protocol) :
+
+
+    Type de protocole : C'est un protocole de communication de la couche transport du modèle OSI.
+
+
+    Caractéristiques principales :
+
+
+        Non fiable : Il ne garantit pas la livraison des données, ni l'ordre des paquets. Il n'y a pas de mécanisme de contrôle d'erreur comme dans TCP.
+
+
+        Sans connexion : Il n'établit pas de connexion avant l'envoi des données, ce qui le rend plus rapide, mais au prix de la fiabilité.
+
+
+        Utilisation : Idéal pour des applications qui nécessitent des échanges rapides, comme la diffusion de vidéo en direct, les appels VoIP, les jeux en ligne, où la perte de quelques paquets est tolérée.
+
+
+        Ports : Il utilise des ports, tout comme TCP, pour distinguer les différentes applications.
+
+
+
+
+
+ICMP (Internet Control Message Protocol) :
+
+
+    Type de protocole : C'est un protocole de la couche réseau du modèle OSI, utilisé principalement pour la gestion des erreurs et les diagnostics dans les réseaux IP.
+
+
+    Caractéristiques principales :
+
+
+        Messages de contrôle et de diagnostic : Il est utilisé pour transmettre des messages d'erreur et des informations de contrôle sur le réseau, par exemple lors de la détection d'une destination injoignable.
+
+
+        Exemples de commandes ICMP :
+
+
+            Ping : Utilise ICMP pour tester la connectivité entre deux hôtes.
+
+
+            Traceroute : Utilise ICMP pour suivre le chemin des paquets à travers un réseau.
+
+
+        Types de messages :
+
+
+            Echo request / Echo reply (pour le ping).
+
+
+            Destination Unreachable (lorsqu'un hôte ou un réseau est injoignable).
+
+
+            Time exceeded (lorsqu'un paquet a expiré dans le réseau).
+
+
+
+
+
+Différences clés :
+
+
+    UDP est un protocole de transport qui permet d'envoyer des données sans établir de connexion.
+
+
+    ICMP est un protocole de gestion des erreurs et de diagnostic qui permet de signaler des problèmes ou de tester des connexions.
+
+
+Si tu veux plus de détails ou des exemples pratiques sur ces protocoles, n’hésite pas !
+
+
+
+
 
 
 ALGORITHMES :
-la partie technique aux technichiens 
 
-MAQUETTE NFTABLES: 
-
-MAQUETTE STORMSHIELD :
-Lors de ma configuration, j'ai utilisé VirtualBox avec des interfaces en bridge, associées à des adresses IP virtuelles. J'ai ensuite configuré ces IP sur des interfaces sur le Stormshield.
-Toutefois, après un certain temps, la connexion a cessé de fonctionner. Face à ce problème, j'ai décidé de passer à un firewall FortiGate physique, en évitant l'utilisation d'une machine virtuelle et d'un switch. 
-Cela m'a permis de résoudre les problèmes de configuration et d'interface rencontrés avec la VM Stormshield.
-MAQUETTE FORTIGATE :
-
-CONCLUSION
-mettre d'autres choses 
-En conclusion, bien que l'encapsulation de l'UDP dans de l'ICMP soit une technique parfois utilisée dans des attaques pour contourner les contrôles de sécurité, 
-il est crucial de mettre en place des mécanismes pour détecter et bloquer ce type de trafic. 
-Par exemple, l'utilisation d'un IDS (Intrusion Detection System) capable d'analyser les paquets ICMP et de détecter des anomalies, comme une longueur de paquet inhabituelle ou des motifs spécifiques, 
-permettrait de contrer efficacement cette méthode. Cette approche permettrait non seulement de détecter les tentatives d'encapsulation, mais aussi d'empêcher leur exploitation pour des attaques ou des accès non autorisés.
