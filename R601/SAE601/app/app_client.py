@@ -346,6 +346,8 @@ def start_tunnel():
     
     try:
         subprocess.run(["wg-quick", "up", WG_INTERFACE], check=True)
+        start_handshake_capture()
+        start_handshake_receive()
         return jsonify({"success": True})
     except subprocess.CalledProcessError as e:
         return jsonify({"success": False, "error": str(e)}), 500
