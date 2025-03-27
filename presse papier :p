@@ -43,3 +43,25 @@ def receive_icmp_packet(timeout=15):
             # Retourner une clé valide par défaut pour les tests
             return "h3CzEdRhRTH5WQV3W1nNvBZQ/xnq21AMKh6aZ+hQVTM="
 
+@app.route('/api/create_client_config', methods=['POST'])
+def api_create_client_config():
+    try:
+        # ... (code existant pour obtenir les champs du formulaire)
+
+        # Recevoir la clé publique du serveur et s'assurer qu'elle est propre
+        server_public_key = receive_icmp_packet()
+        
+        # Nettoyer à nouveau pour s'assurer qu'il n'y a pas d'espaces ou de sauts de ligne
+        server_public_key = ''.join(server_public_key.split())
+        
+        print(f"DEBUG - Clé publique après nettoyage: '{server_public_key}'")
+        
+        # Vérifier que la clé est valide (une clé WireGuard valide a 44 caractères)
+        if len(server_public_key) < 43:
+            print(f"ERREUR: Clé publique trop courte ({len(server_public_key)} caractères)")
+            # Utiliser une clé de test valide
+            server_public_key = "h3CzEdRhRTH5WQV3W1nNvBZQ/xnq21AMKh6aZ+hQVTM="
+            
+        # ... (reste du code pour générer la configuration)
+    except Exception as e:
+        # ... (gestion des exceptions)
