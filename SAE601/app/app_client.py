@@ -106,8 +106,12 @@ def send_udp_packet(dest_ip, udp_data):
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
         s.sendto(udp_data, (dest_ip, 51820))
 
-########################
-########################
+
+#################################################
+########### FONCTIONS INTERMEDIAIRES ############
+#################################################
+
+
 
 # Génération des clés publiques et privées
 def generate_keys():
@@ -143,6 +147,13 @@ def send_client_key(server_ip):
     # 3) Envoyer via ICMP
     send_icmp_packet(server_ip, key_data)
 
+
+
+#########################################
+########### PARTIE APP.ROUTE ############
+#########################################
+
+
 # Routes Flask
 @app.route('/')
 def client_index():
@@ -150,11 +161,14 @@ def client_index():
     client_private_key, client_public_key = save_client_keys()
     return render_template('client/index_client.html', client_public_key=client_public_key)  # affiche une page HTML
 
+
+########### GENERATION DE CLES ###########
 @app.route('/api/generate_keys')
 def api_generate_client_keys():
     client_private_key, client_public_key = save_client_keys()
     return jsonify({"success": True, "private_key": client_private_key, "public_key": client_public_key})
 
+########### CREATION DE CONFIG CLIENT ###########
 @app.route('/api/create_client_config', methods=['POST'])
 def api_create_client_config():
     try:
@@ -207,6 +221,8 @@ AllowedIPs = {{ server_ip }}/32
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
+
+########### ENVOIE DE CLE PUBLIQUE ###########
 @app.route('/api/send_public_key', methods=["POST"])
 def api_send_client_key():
     data = request.get_json()
@@ -222,6 +238,7 @@ def api_send_client_key():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500  # Capture les erreurs
 
+########### START TUNNEL ###########
 @app.route('/api/start_tunnel', methods=['GET'])
 def start_tunnel():
     server_ip = request.args.get('ip')
@@ -234,6 +251,7 @@ def start_tunnel():
     except subprocess.CalledProcessError as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
+########### STOP TUNNEL ###########
 @app.route('/api/stop_tunnel', methods=['GET'])
 def stop_tunnel():
     server_ip = request.args.get('ip')
