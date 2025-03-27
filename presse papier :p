@@ -1,0 +1,103 @@
+#!/bin/bash
+# Script pour configurer le pare-feu afin de forcer l'encapsulation ICMP
+
+# Variables à adapter selon votre configuration
+WG_PORT=51820
+SERVER_IP="192.168.1.113"  # Adresse IP physique du serveur
+CLIENT_IP="192.168.1.1"    # Adresse IP physique du client
+
+# Fonction pour configurer le client
+setup_client_firewall() {
+    echo "Configuration du pare-feu sur le client..."
+    
+    # Autoriser le trafic ICMP entrant et sortant
+    iptables -A INPUT -p icmp -j ACCEPT
+    iptables -A OUTPUT -p icmp -j ACCEPT
+    
+    # Bloquer le trafic UDP sortant vers le serveur sur le port WireGuard
+    # Cela force l'utilisation de l'encapsulation ICMP
+    iptables -A OUTPUT -p udp -d $SERVER_IP --dport $WG_PORT -j DROP
+    
+    # Autoriser le trafic UDP local pour WireGuard
+    iptables -A INPUT -p udp --dport $WG_PORT -s 127.0.0.1 -j ACCEPT
+    iptables -A OUTPUT -p udp --dport $WG_PORT -d 127.0.0.1 -j ACCEPT
+    
+    echo "Pare-feu client configuré."
+}
+
+# Fonction pour configurer le serveur
+setup_server_firewall() {
+    echo "Configuration du pare-feu sur le serveur..."
+    
+    # Autoriser le trafic ICMP entrant et sortant
+    iptables -A INPUT -p icmp -j ACCEPT
+    iptables -A OUTPUT -p icmp -j ACCEPT
+    
+    # Bloquer le trafic UDP sortant vers le client sur le port WireGuard
+    # Cela force l'utilisation de l'encapsulation ICMP
+    iptables -A OUTPUT -p udp -d $CLIENT_IP --dport $WG_PORT -j DROP
+    
+    # Autoriser le trafic UDP local pour WireGuard
+    iptables -A INPUT -p udp --dport $WG_PORT -s 127.0.0.1 -j ACCEPT
+    iptables -A OUTPUT -p udp --dport $WG_PORT -d 127.0.0.1 -j ACCEPT
+    
+    echo "Pare-feu serveur configuré."
+}
+
+# Fonction pour vérifier si le script est exécuté en tant que root
+check_root() {
+    if [ "$(id -u)" != "0" ]; then
+        echo "Ce script doit être exécuté en tant que root."
+        exit 1
+    fi
+}
+
+# Fonction pour réinitialiser les règles iptables
+reset_firewall() {
+    echo "Réinitialisation des règles iptables..."
+    iptables -F
+    iptables -X
+    iptables -t nat -F
+    iptables -t nat -X
+    iptables -t mangle -F
+    iptables -t mangle -X
+    iptables -P INPUT ACCEPT
+    iptables -P FORWARD ACCEPT
+    iptables -P OUTPUT ACCEPT
+    echo "Règles iptables réinitialisées."
+}
+
+# Programme principal
+check_root
+
+# Afficher le menu
+echo "Configuration du pare-feu pour WireGuard sur ICMP"
+echo "================================================="
+echo "1) Configurer le pare-feu du client"
+echo "2) Configurer le pare-feu du serveur"
+echo "3) Réinitialiser les règles du pare-feu"
+echo "4) Quitter"
+echo ""
+read -p "Votre choix (1-4): " choice
+
+case $choice in
+    1) reset_firewall && setup_client_firewall ;;
+    2) reset_firewall && setup_server_firewall ;;
+    3) reset_firewall ;;
+    4) exit 0 ;;
+    *) echo "Choix invalide." && exit 1 ;;
+esac
+
+# Sauvegarder les règles
+if [ -f /etc/debian_version ]; then
+    echo "Sauvegarde des règles iptables pour Debian/Ubuntu..."
+    iptables-save > /etc/iptables/rules.v4
+elif [ -f /etc/redhat-release ]; then
+    echo "Sauvegarde des règles iptables pour RHEL/CentOS..."
+    iptables-save > /etc/sysconfig/iptables
+else
+    echo "Système d'exploitation non reconnu. Les règles ne sont pas sauvegardées."
+    echo "Vous pouvez les sauvegarder manuellement avec: iptables-save > /path/to/rules"
+fi
+
+echo "Configuration terminée."
