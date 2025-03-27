@@ -41,6 +41,8 @@ Silencieux par défaut
     Contrairement à d'autres VPN qui envoient régulièrement des signaux pour garder la connexion active, WireGuard reste inactif tant qu'aucune donnée n'est échangée.
     Cela le rend difficile à détecter par des pare-feu, surtout avec l'utilisation du mode stealth.
 
+Contrairement à IPsec (complexe avec ses multiples modes et algorithmes) ou OpenVPN (nécessitant des certificats et une gestion plus lourde), WireGuard fonctionne avec une simple paire de clés publiques/privées et quelques lignes de configuration.
+
 
 RAPPELS UDP & ICMP
 
@@ -82,7 +84,9 @@ ALGORITHMES :
 la partie technique aux technichiens 
 
 MAQUETTE NFTABLES: 
-
+J'en sais rien
+Nftables est un parefeu intégrer au pc il fonctionne comme un service et on a rapidement changé de firewall car il posait problème, par exemple quand on bloque tout le traffic on voit quand meme les paquets partir sur la capture wireshark alors qu'ils ne partent pas, la capture wireshark se fait avant le blocage de nftables donc ca pose probleme pour le debuggage avec wireshark 
+donc on a préféré changer de parefeu pour un pas forcément plus simple mais déjà on sait s'en servir.
 MAQUETTE STORMSHIELD :
 Lors de ma configuration, j'ai utilisé VirtualBox avec des interfaces en bridge, associées à des adresses IP virtuelles. J'ai ensuite configuré ces IP sur des interfaces sur le Stormshield.
 Toutefois, après un certain temps, la connexion a cessé de fonctionner. Face à ce problème, j'ai décidé de passer à un firewall FortiGate physique, en évitant l'utilisation d'une machine virtuelle et d'un switch. 
