@@ -1,103 +1,151 @@
-#!/bin/bash
-# Script pour configurer le pare-feu afin de forcer l'encapsulation ICMP
+# Modifications à apporter à app_client.py
 
-# Variables à adapter selon votre configuration
-WG_PORT=51820
-SERVER_IP="192.168.1.113"  # Adresse IP physique du serveur
-CLIENT_IP="192.168.1.1"    # Adresse IP physique du client
+# 1. Améliorez la fonction de détection des handshakes
+def is_wireguard_handshake(packet):
+    """
+    Détecte tous les paquets WireGuard avec une logique plus souple.
+    """
+    try:
+        if len(packet) < 4:
+            return False
 
-# Fonction pour configurer le client
-setup_client_firewall() {
-    echo "Configuration du pare-feu sur le client..."
+        # Les types de messages WireGuard (1 = Initiation, 2 = Response, 3 = Cookie, 4 = Transport)
+        message_type = struct.unpack("!I", packet[:4])[0]
+        
+        # Afficher plus d'informations de diagnostic
+        if message_type in [1, 2, 3, 4]:
+            print(f"[+] Paquet WireGuard de type {message_type} détecté, taille: {len(packet)}")
+            return True
+        
+        return False
+    except Exception as e:
+        print(f"[-] Erreur lors de la détection handshake : {e}")
+        return False
+
+# 2. Améliorez la fonction de capture et encapsulation pour être plus agressive
+def capture_and_encapsulate_handshake(port=51820, server_ip=None):
+    """
+    Capture TOUS les paquets UDP destinés au port WireGuard et les encapsule.
+    """
+    if not server_ip:
+        print("[-] ERREUR: Adresse IP du serveur non spécifiée")
+        return
+        
+    print(f"[+] Démarrage de la capture de paquets WireGuard pour le serveur {server_ip}")
     
-    # Autoriser le trafic ICMP entrant et sortant
-    iptables -A INPUT -p icmp -j ACCEPT
-    iptables -A OUTPUT -p icmp -j ACCEPT
+    with socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_UDP) as s:
+        s.bind(('0.0.0.0', 0))
+        print(f"[+] Capture active sur port UDP {port}")
+
+        # Stocker temporairement les paquets vus récemment pour éviter les doublons
+        recent_packets = {}
+        
+        while True:
+            try:
+                packet, addr = s.recvfrom(65535)
+                
+                # Extraire les en-têtes IP et UDP
+                ip_header_len = (packet[0] & 0x0F) * 4
+                udp_header = packet[ip_header_len:ip_header_len+8]
+                
+                # Vérifier si c'est du trafic sur le port WireGuard
+                if len(udp_header) >= 4:
+                    src_port, dest_port = struct.unpack('!HH', udp_header[:4])
+                    
+                    # Si c'est destiné au port WireGuard
+                    if dest_port == port:
+                        # Récupérer la charge utile UDP
+                        payload = packet[ip_header_len + 8:]
+                        
+                        if not payload:
+                            continue
+                            
+                        # Générer une empreinte pour éviter les doublons
+                        packet_hash = hash(payload)
+                        
+                        # Si nous n'avons pas encore vu ce paquet récemment
+                        if packet_hash not in recent_packets:
+                            # Encapsuler et envoyer le paquet
+                            print(f"[+] Encapsulation d'un paquet UDP vers {server_ip}, taille: {len(payload)}")
+                            encapsulate_wireguard_handshake(payload, server_ip)
+                            
+                            # Marquer ce paquet comme traité
+                            recent_packets[packet_hash] = True
+                            
+                            # Limiter la taille du dictionnaire
+                            if len(recent_packets) > 100:
+                                oldest_key = next(iter(recent_packets))
+                                del recent_packets[oldest_key]
+            except Exception as e:
+                print(f"[-] Erreur de capture: {e}")
+                continue
+
+# 3. Améliorer la fonction receive_icmp_handshake pour être plus tolérante
+def receive_icmp_handshake():
+    """
+    Écoute les paquets ICMP et réinjecte tout payload potentiellement WireGuard.
+    """
+    with socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_ICMP) as s:
+        s.bind(('0.0.0.0', 0))
+        print("[+] En attente de paquets ICMP pour WireGuard...")
+
+        while True:
+            try:
+                packet, addr = s.recvfrom(65535)
+                src_ip = addr[0]
+                
+                # Extraire le payload
+                ip_header_length = 20
+                icmp_header_length = 8
+                payload = packet[ip_header_length + icmp_header_length:]
+                
+                if len(payload) < 4:
+                    continue
+                    
+                # Tenter d'analyser comme un paquet WireGuard
+                try:
+                    message_type = struct.unpack("!I", payload[:4])[0]
+                    if message_type in [1, 2, 3, 4]:
+                        print(f"[+] Paquet ICMP reçu de {src_ip} contenant un message WireGuard type {message_type}")
+                        # Réinjecter dans WireGuard local
+                        send_wireguard_handshake(payload)
+                        print(f"[+] Paquet réinjecté localement")
+                except:
+                    # Ce n'est pas un paquet WireGuard
+                    continue
+            except Exception as e:
+                print(f"[-] Erreur lors de la réception ICMP: {e}")
+                continue
+
+# 4. Modifiez la route de démarrage du tunnel pour s'assurer que l'ordre est correct
+@app.route('/api/start_tunnel', methods=['GET'])
+def start_tunnel():
+    server_ip = request.args.get('ip')
+    if not server_ip:
+        return jsonify({"success": False, "error": "IP du serveur manquante"}), 400
     
-    # Bloquer le trafic UDP sortant vers le serveur sur le port WireGuard
-    # Cela force l'utilisation de l'encapsulation ICMP
-    iptables -A OUTPUT -p udp -d $SERVER_IP --dport $WG_PORT -j DROP
-    
-    # Autoriser le trafic UDP local pour WireGuard
-    iptables -A INPUT -p udp --dport $WG_PORT -s 127.0.0.1 -j ACCEPT
-    iptables -A OUTPUT -p udp --dport $WG_PORT -d 127.0.0.1 -j ACCEPT
-    
-    echo "Pare-feu client configuré."
-}
-
-# Fonction pour configurer le serveur
-setup_server_firewall() {
-    echo "Configuration du pare-feu sur le serveur..."
-    
-    # Autoriser le trafic ICMP entrant et sortant
-    iptables -A INPUT -p icmp -j ACCEPT
-    iptables -A OUTPUT -p icmp -j ACCEPT
-    
-    # Bloquer le trafic UDP sortant vers le client sur le port WireGuard
-    # Cela force l'utilisation de l'encapsulation ICMP
-    iptables -A OUTPUT -p udp -d $CLIENT_IP --dport $WG_PORT -j DROP
-    
-    # Autoriser le trafic UDP local pour WireGuard
-    iptables -A INPUT -p udp --dport $WG_PORT -s 127.0.0.1 -j ACCEPT
-    iptables -A OUTPUT -p udp --dport $WG_PORT -d 127.0.0.1 -j ACCEPT
-    
-    echo "Pare-feu serveur configuré."
-}
-
-# Fonction pour vérifier si le script est exécuté en tant que root
-check_root() {
-    if [ "$(id -u)" != "0" ]; then
-        echo "Ce script doit être exécuté en tant que root."
-        exit 1
-    fi
-}
-
-# Fonction pour réinitialiser les règles iptables
-reset_firewall() {
-    echo "Réinitialisation des règles iptables..."
-    iptables -F
-    iptables -X
-    iptables -t nat -F
-    iptables -t nat -X
-    iptables -t mangle -F
-    iptables -t mangle -X
-    iptables -P INPUT ACCEPT
-    iptables -P FORWARD ACCEPT
-    iptables -P OUTPUT ACCEPT
-    echo "Règles iptables réinitialisées."
-}
-
-# Programme principal
-check_root
-
-# Afficher le menu
-echo "Configuration du pare-feu pour WireGuard sur ICMP"
-echo "================================================="
-echo "1) Configurer le pare-feu du client"
-echo "2) Configurer le pare-feu du serveur"
-echo "3) Réinitialiser les règles du pare-feu"
-echo "4) Quitter"
-echo ""
-read -p "Votre choix (1-4): " choice
-
-case $choice in
-    1) reset_firewall && setup_client_firewall ;;
-    2) reset_firewall && setup_server_firewall ;;
-    3) reset_firewall ;;
-    4) exit 0 ;;
-    *) echo "Choix invalide." && exit 1 ;;
-esac
-
-# Sauvegarder les règles
-if [ -f /etc/debian_version ]; then
-    echo "Sauvegarde des règles iptables pour Debian/Ubuntu..."
-    iptables-save > /etc/iptables/rules.v4
-elif [ -f /etc/redhat-release ]; then
-    echo "Sauvegarde des règles iptables pour RHEL/CentOS..."
-    iptables-save > /etc/sysconfig/iptables
-else
-    echo "Système d'exploitation non reconnu. Les règles ne sont pas sauvegardées."
-    echo "Vous pouvez les sauvegarder manuellement avec: iptables-save > /path/to/rules"
-fi
-
-echo "Configuration terminée."
+    try:
+        # 1. Démarrer d'abord la capture des handshakes
+        print(f"[+] Démarrage de la capture des handshakes ICMP pour le serveur {server_ip}")
+        
+        # Démarrer thread de réception ICMP
+        receive_thread = threading.Thread(target=receive_icmp_handshake)
+        receive_thread.daemon = True
+        receive_thread.start()
+        
+        # Démarrer thread de capture et encapsulation
+        capture_thread = threading.Thread(target=capture_and_encapsulate_handshake, 
+                                         args=(51820, server_ip))
+        capture_thread.daemon = True
+        capture_thread.start()
+        
+        # 2. Attendre un peu pour s'assurer que les threads sont actifs
+        time.sleep(1)
+        
+        # 3. Ensuite démarrer le tunnel WireGuard
+        print(f"[+] Démarrage du tunnel WireGuard")
+        subprocess.run(["wg-quick", "up", WG_INTERFACE], check=True)
+        
+        return jsonify({"success": True})
+    except subprocess.CalledProcessError as e:
+        return jsonify({"success": False, "error": str(e)}), 500
