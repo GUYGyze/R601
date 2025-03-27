@@ -184,7 +184,7 @@ Address = {{ client_ip }}/24
 [Peer]
 PublicKey = {{ server_public_key }}
 Endpoint = {{ server_endpoint }}:{{ server_port }}
-AllowedIPs = {{ client_ip }}/32
+AllowedIPs = {{ server_ip }}/32
 """
         config_content = render_template_string(
             config_template,
