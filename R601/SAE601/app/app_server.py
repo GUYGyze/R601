@@ -4,6 +4,7 @@ import os
 import socket
 import struct
 import random
+import threading
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
 
@@ -15,6 +16,123 @@ SERVER_PRIVATE_KEY_PATH = os.path.join(SERVER_KEYS_DIR, "server_private_key")
 SERVER_PUBLIC_KEY_PATH = os.path.join(SERVER_KEYS_DIR, "server_public_key")
 
 os.makedirs(SERVER_KEYS_DIR, exist_ok=True)
+
+######################
+## Partie Handshake ##
+######################
+
+def is_wireguard_handshake(packet):
+    """
+    Détecte uniquement les paquets de handshake WireGuard (Initiation ou Response).
+    """
+    try:
+        if len(packet) < 4:
+            return False
+
+        message_type = struct.unpack("!I", packet[:4])[0]
+
+        if message_type == 1 and len(packet) >= 148:
+            return True
+        elif message_type == 2 and len(packet) >= 92:
+            return True
+        else:
+            return False
+
+    except Exception as e:
+        print(f"Erreur lors de la détection handshake : {e}")
+        return False
+
+def encapsulate_wireguard_handshake(packet, dest_ip):
+    """
+    Encapsule un paquet de handshake WireGuard dans un paquet ICMP.
+    """
+    # Créer un paquet ICMP avec les données de handshake
+    send_icmp_packet(dest_ip, packet)
+    print(f"Handshake WireGuard encapsulé vers {dest_ip}")
+
+def capture_and_encapsulate_handshake(port=51820):
+    """
+    Capture les paquets de handshake WireGuard et les encapsule.
+    """
+    with socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_UDP) as s:
+        s.bind(('0.0.0.0', 0))
+        print(f"Surveillance des paquets de handshake WireGuard sur le port {port}")
+        
+        # Dictionnaire pour suivre les paquets déjà encapsulés
+        encapsulated_packets = {}
+        
+        while True:
+            packet, addr = s.recvfrom(65535)
+            ip_header = packet[:20]
+            udp_header = packet[20:28]
+            src_port, dest_port = struct.unpack('!HH', udp_header[:4])
+            
+            if dest_port == port:
+                handshake_payload = packet[28:]
+                
+                # Générer un hash unique pour le paquet
+                packet_hash = hash(handshake_payload)
+                
+                # Vérifier si c'est un paquet de handshake et s'il n'a pas déjà été encapsulé
+                if is_wireguard_handshake(handshake_payload) and packet_hash not in encapsulated_packets:
+                    # Stocker le hash du paquet pour éviter les doublons
+                    encapsulated_packets[packet_hash] = True
+                    
+                    # Limiter la taille du dictionnaire pour éviter la croissance illimitée
+                    if len(encapsulated_packets) > 1000:
+                        encapsulated_packets.clear()
+                    
+                    # Choisir dynamiquement l'IP de destination
+                    dest_ip = addr[0]  # IP source du paquet UDP
+                    
+                    # Encapsuler le paquet de handshake
+                    encapsulate_wireguard_handshake(handshake_payload, dest_ip)
+                    
+def send_wireguard_handshake(handshake_data, port=51820, dest_ip='127.0.0.1'):
+    """
+    Réinjecte un paquet de handshake WireGuard via UDP.
+    """
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+        s.sendto(handshake_data, (dest_ip, port))
+        print(f"Paquet de handshake WireGuard réinjecté vers {dest_ip}:{port}")
+
+def receive_icmp_handshake(process_function=None):
+    """
+    Écoute les paquets ICMP contenant des handshakes WireGuard.
+    """
+    with socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_ICMP) as s:
+        s.bind(('0.0.0.0', 0))
+        print("En attente de paquets ICMP de handshake...")
+
+        while True:
+            packet, addr = s.recvfrom(65535)
+            handshake_data = extract_udp_from_icmp(packet)
+            
+            # Vérifier que c'est bien un paquet de handshake
+            if is_wireguard_handshake(handshake_data):
+                print(f"Handshake WireGuard reçu de {addr}")
+                
+                # Réinjecter le paquet ou appeler une fonction de traitement
+                send_wireguard_handshake(handshake_data)
+                
+                if process_function:
+                    process_function(handshake_data)
+
+def start_handshake_capture():
+    """
+    Démarre un thread pour capturer les handshakes.
+    """
+    handshake_thread = threading.Thread(target=capture_and_encapsulate_handshake)
+    handshake_thread.daemon = True
+    handshake_thread.start()
+
+def start_handshake_receive():
+    """
+    Démarre un thread pour recevoir les handshakes encapsulés.
+    """
+    receive_thread = threading.Thread(target=receive_icmp_handshake)
+    receive_thread.daemon = True
+    receive_thread.start()
 
 ### Pour rediriger des données UDP extraites vers une app
 def forward_udp_to_application(udp_data, dest_ip='127.0.0.1', dest_port=12345):
