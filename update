@@ -1,0 +1,52 @@
+def monitor_udp_wireguard_traffic(interface='eth0', dest_ip='192.0.2.1', wg_port=51820):
+    print(f"[+] Surveillance de {interface} pour le trafic UDP WireGuard vers le port {wg_port}...")
+    with socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.ntohs(0x0003)) as s:
+        while True:
+            packet = s.recvfrom(65535)[0]
+            eth_proto = struct.unpack('!H', packet[12:14])[0]
+            if eth_proto != 0x0800:  # Vérifie si c'est de l'IPv4
+                continue
+
+            ip_proto = packet[23]
+            if ip_proto != 17:  # Vérifie si c'est UDP
+                continue
+
+            udp_segment = packet[34:]  # Enlève les headers Ethernet (14) + IP (20)
+            udp_dest_port = struct.unpack('!H', udp_segment[2:4])[0]
+            if udp_dest_port == wg_port:
+                print(f"[~] Paquet WireGuard intercepté sur {interface}, encapsulation ICMP...")
+                send_icmp_packet(dest_ip, udp_segment)  # Envoi au serveur via ICMP
+
+
+def receive_and_forward_icmp_to_udp():
+    with socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_ICMP) as s:
+        s.bind(('0.0.0.0', 0))
+        print("En attente de paquets ICMP...")
+
+        while True:
+            packet, addr = s.recvfrom(65535)
+            udp_data = extract_udp_from_icmp(packet)
+            
+            if udp_data:
+                print(f"[~] Données UDP extraites, transmission vers WireGuard...")
+                forward_udp_to_application(udp_data, dest_ip='127.0.0.1', dest_port=51820)
+
+def forward_udp_to_application(udp_data, dest_ip='127.0.0.1', dest_port=51820):
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udp_socket:
+        udp_socket.sendto(udp_data, (dest_ip, dest_port))
+        print(f"Données UDP transmises à WireGuard {dest_ip}:{dest_port}")
+
+@app.route('/api/start_tunnel', methods=['POST'])
+def start_tunnel():
+    try:
+        # Lancer l'encapsulation côté client
+        threading.Thread(target=monitor_udp_wireguard_traffic, daemon=True).start()
+        print("[+] Capture et encapsulation ICMP lancées sur le client.")
+
+        # Lancer la désencapsulation côté serveur
+        threading.Thread(target=receive_and_forward_icmp_to_udp, daemon=True).start()
+        print("[+] Désencapsulation ICMP vers UDP lancée sur le serveur.")
+
+        return jsonify({"success": True, "message": "Tunnel ICMP activé"})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
