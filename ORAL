@@ -11,110 +11,45 @@ Contexte et objectif
 
 
     On veut traverser un pare-feu qui restreint l'usage d'UDP, soit totalement, soit sur les ports qui nous intéressent.
-
-
     On veut faire de l'UDP pour pouvoir monter un tunnel wireguard par dessus
-
-
     On ne veut pas encapsuler notre trafic dans TCP ou un protocole au dessus de TCP pour éviter le phénomène de "TCP Meltdown" (because wireguard: on veut pouvoir faire passer n'importe quoi dedans, notamment du TCP, SSH, etc)
-
-
-    On suppose que le pare-feu laisser passer ICMP, ou a minima, ICMP request et ICMP reply (ping).
-
-
+    On suppose que le pare-feu laisser passer ICMP, ou a minima, ICMP request et ICMP reply (ping)
     On va coder un outil qui encapsule UDP dans ICMP à l'aide du payload ICMP.
-
-
-
-
-
 
 
 DEMO :
 
-
-
 QU'EST-CE QUE WIREGUARD ?
 
-
-
-
 RAPPELS UDP & ICMP : 
-
-
-
-
 
 UDP (User Datagram Protocol) :
 
 
     Type de protocole : C'est un protocole de communication de la couche transport du modèle OSI.
-
-
     Caractéristiques principales :
-
-
         Non fiable : Il ne garantit pas la livraison des données, ni l'ordre des paquets. Il n'y a pas de mécanisme de contrôle d'erreur comme dans TCP.
-
-
         Sans connexion : Il n'établit pas de connexion avant l'envoi des données, ce qui le rend plus rapide, mais au prix de la fiabilité.
-
-
         Utilisation : Idéal pour des applications qui nécessitent des échanges rapides, comme la diffusion de vidéo en direct, les appels VoIP, les jeux en ligne, où la perte de quelques paquets est tolérée.
-
-
         Ports : Il utilise des ports, tout comme TCP, pour distinguer les différentes applications.
 
 
-
-
-
 ICMP (Internet Control Message Protocol) :
-
-
     Type de protocole : C'est un protocole de la couche réseau du modèle OSI, utilisé principalement pour la gestion des erreurs et les diagnostics dans les réseaux IP.
-
-
     Caractéristiques principales :
-
-
         Messages de contrôle et de diagnostic : Il est utilisé pour transmettre des messages d'erreur et des informations de contrôle sur le réseau, par exemple lors de la détection d'une destination injoignable.
-
-
         Exemples de commandes ICMP :
-
-
             Ping : Utilise ICMP pour tester la connectivité entre deux hôtes.
-
-
             Traceroute : Utilise ICMP pour suivre le chemin des paquets à travers un réseau.
-
-
         Types de messages :
-
-
             Echo request / Echo reply (pour le ping).
-
-
             Destination Unreachable (lorsqu'un hôte ou un réseau est injoignable).
-
-
             Time exceeded (lorsqu'un paquet a expiré dans le réseau).
 
 
-
-
-
 Différences clés :
-
-
     UDP est un protocole de transport qui permet d'envoyer des données sans établir de connexion.
-
-
     ICMP est un protocole de gestion des erreurs et de diagnostic qui permet de signaler des problèmes ou de tester des connexions.
-
-
-Si tu veux plus de détails ou des exemples pratiques sur ces protocoles, n’hésite pas !
 
 
 
