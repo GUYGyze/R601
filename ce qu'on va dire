@@ -12,8 +12,12 @@ Les différentes maquettes car on a eu quelques problemes avec les firewalls et 
 
 CONTEXTE & OBJECTIF : 
 Contexte : 
-Le but est de créer un tunnel a travers le firewall de l’IUT 
-on souhaite 
+
+    On veut traverser un pare-feu qui restreint l'usage d'UDP
+    On veut faire de l'UDP pour pouvoir monter un tunnel wireguard par dessus
+    On suppose que le pare-feu laisser passer ICMP, ou a minima, ICMP request et ICMP reply (ping).
+    On va coder un outil qui encapsule UDP dans ICMP
+
 
 Objectifs : 
 On veut traverser un pare-feu qui restreint l'usage d'UDP, soit totalement, soit sur les ports qui nous intéressent.
