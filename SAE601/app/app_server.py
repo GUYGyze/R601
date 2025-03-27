@@ -108,8 +108,11 @@ def send_udp_packet(dest_ip, udp_data):
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
         s.sendto(udp_data, (dest_ip, 51820))
 
-########################
-########################
+
+        
+##############################################
+########## FONCTIONS INTERMEDIAIRES ##########
+##############################################
 
 # Génération des clés publiques et privées
 def generate_keys():
@@ -126,6 +129,33 @@ def save_server_keys():
         f.write(public_key)
     return private_key, public_key
 
+def send_server_key(client_ip):
+    # 1) Lire la clé publique sauvegardée
+    public_key_path = os.path.join(SERVER_KEYS_DIR, "server_public_key")
+    if not os.path.exists(public_key_path):
+        raise FileNotFoundError("Clé publique introuvable. Générez d'abord les clés.")
+
+    with open(public_key_path, 'r') as f:
+        public_key = f.read().strip()
+
+    # 2) Encoder la clé publique en bytes
+    key_data = public_key.encode('utf-8')
+
+    # 3) Envoyer via ICMP
+    send_icmp_packet(client_ip, key_data)
+
+
+######################################
+########## PARTIE APP.ROUTE ##########
+######################################
+
+#  Routes Flask
+@app.route('/')
+def server_index():
+    # Afficher la page du serveur
+    return render_template('server/index_server.html')
+
+########## CREER CONFIG SERVEUR ##########
 @app.route('/api/create_server_config', methods=['POST'])
 def create_server_config():
     try:
@@ -148,8 +178,6 @@ def create_server_config():
         # Vérifier que toutes les données sont bien fournies
         if not all([server_ip, server_listen_port, server_interface, client_ip, client_name, server_private_key, server_public_key]):
             return jsonify({"success": False, "error": "Tous les champs sont requis"}), 400
-
-        # Client public key reception => wireshark listenning (client_public_key)
 
         # Charger le template WireGuard
         config_template = """[Interface]
@@ -188,27 +216,8 @@ Endpoint = {{ client_endpoint }}:{{ client_port }}
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
-def send_server_key(client_ip):
-    # 1) Lire la clé publique sauvegardée
-    public_key_path = os.path.join(SERVER_KEYS_DIR, "server_public_key")
-    if not os.path.exists(public_key_path):
-        raise FileNotFoundError("Clé publique introuvable. Générez d'abord les clés.")
 
-    with open(public_key_path, 'r') as f:
-        public_key = f.read().strip()
-
-    # 2) Encoder la clé publique en bytes
-    key_data = public_key.encode('utf-8')
-
-    # 3) Envoyer via ICMP
-    send_icmp_packet(client_ip, key_data)
-
-# Routes Flask
-@app.route('/')
-def server_index():
-    # Afficher la page du serveur
-    return render_template('server/index_server.html')
-
+########## GENERATION DE CLES ##########
 @app.route('/api/generate_keys')
 def api_generate_server_keys():
     server_private_key, server_public_key = save_server_keys()
@@ -218,6 +227,8 @@ def api_generate_server_keys():
         "public_key": server_public_key
     })
 
+
+########## ENVOIE DE CLE PUBLIQUE ##########
 @app.route('/api/send_public_key', methods=["POST"])
 def api_send_server_key():
     data = request.get_json()
@@ -232,6 +243,8 @@ def api_send_server_key():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500  # Capture les erreurs
 
+
+########## START TUNNEL ##########
 @app.route('/api/start_tunnel', methods=['GET'])
 def start_tunnel():
     client_ip = request.args.get('ip')
@@ -244,6 +257,8 @@ def start_tunnel():
     except subprocess.CalledProcessError as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
+
+########## STOP TUNNEL ##########
 @app.route('/api/stop_tunnel', methods=['GET'])
 def stop_tunnel():
     client_ip = request.args.get('ip')
