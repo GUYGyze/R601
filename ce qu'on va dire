@@ -12,7 +12,8 @@ Les différentes maquettes car on a eu quelques problemes avec les firewalls et 
 
 CONTEXTE & OBJECTIF : 
 Contexte : 
-On souhaite traverser le firewall de l’IUT
+Le but est de créer un tunnel a travers le firewall de l’IUT 
+on souhaite 
 
 Objectifs : 
 On veut traverser un pare-feu qui restreint l'usage d'UDP, soit totalement, soit sur les ports qui nous intéressent.
@@ -62,4 +63,8 @@ Cela m'a permis de résoudre les problèmes de configuration et d'interface renc
 MAQUETTE FORTIGATE :
 
 CONCLUSION
-mettre d'autres choses 
+En conclusion, bien que l'encapsulation de l'UDP dans de l'ICMP soit une technique parfois utilisée dans des attaques pour contourner les contrôles de sécurité, 
+il est crucial de mettre en place des mécanismes pour détecter et bloquer ce type de trafic. 
+Par exemple, l'utilisation d'un IDS (Intrusion Detection System) capable d'analyser les paquets ICMP et de détecter des anomalies, comme une longueur de paquet inhabituelle ou des motifs spécifiques, 
+permettrait de contrer efficacement cette méthode. Cette approche permettrait non seulement de détecter les tentatives d'encapsulation, mais aussi d'empêcher leur exploitation pour des attaques ou des accès non autorisés.
+
