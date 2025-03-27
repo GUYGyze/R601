@@ -153,7 +153,7 @@ def send_large_udp_over_icmp(dest_ip, udp_data, mtu=1024):
 ### Capture du trafic UDP WireGuard avant le firewall  ###
 ##########################################################
 
-def monitor_udp_wireguard_traffic(interface='eth0', dest_ip='192.0.2.1', wg_port=51820):
+def monitor_udp_wireguard_traffic(interface, dest_ip, wg_port):
     print(f"[+] Surveillance de {interface} pour le trafic UDP WireGuard vers le port {wg_port}...")
     with socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.ntohs(0x0003)) as s:
         while True:
@@ -330,7 +330,7 @@ def start_tunnel():
 
         # Une fois le tunnel actif, lance l'encapsulation ICMP des paquets WireGuard
         # Tu peux ici choisir dynamiquement l'interface (ex: 'eth0') ou la mettre en dur
-        interface = "eth0"
+        interface = WG_INTERFACE
         wg_port = 51820
         threading.Thread(target=monitor_udp_wireguard_traffic, args=(interface, server_ip, wg_port), daemon=True).start()
 
