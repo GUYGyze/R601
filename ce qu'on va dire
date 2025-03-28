@@ -87,10 +87,49 @@ MAQUETTE NFTABLES:
 J'en sais rien
 Nftables est un parefeu intégrer au pc il fonctionne comme un service et on a rapidement changé de firewall car il posait problème, par exemple quand on bloque tout le traffic on voit quand meme les paquets partir sur la capture wireshark alors qu'ils ne partent pas, la capture wireshark se fait avant le blocage de nftables donc ca pose probleme pour le debuggage avec wireshark 
 donc on a préféré changer de parefeu pour un pas forcément plus simple mais déjà on sait s'en servir.
-MAQUETTE STORMSHIELD :
-Lors de ma configuration, j'ai utilisé VirtualBox avec des interfaces en bridge, associées à des adresses IP virtuelles. J'ai ensuite configuré ces IP sur des interfaces sur le Stormshield.
-Toutefois, après un certain temps, la connexion a cessé de fonctionner. Face à ce problème, j'ai décidé de passer à un firewall FortiGate physique, en évitant l'utilisation d'une machine virtuelle et d'un switch. 
+
+MAQUETTE STORMSHIELD : rajouter un switch sur le schéma
+
+Lors de la configuration, on a utilisé VirtualBox avec des interfaces en bridge, associées à des adresses IP virtuelles. ona a ensuite configuré ces IP sur des interfaces sur le Stormshield.
+Pourquoi utiliser une VM Stormshield ?
+Une VM Stormshield est une alternative logicielle aux pare-feu physiques qui peut être intéressante dans plusieurs cas :
+Flexibilité et test en environnement virtuel
+    Permet de tester des configurations sans investir dans du matériel.
+    Facile à déployer sur un hyperviseur (VMware ESXi, Hyper-V, Proxmox, etc.).
+Économie de coûts
+    Pas besoin d’acheter un équipement dédié si tu as déjà une infrastructure virtuelle.
+    Peut être mutualisée avec d’autres services sur le même hyperviseur.
+Facilité d’intégration dans des infrastructures cloud/hybrides
+    Peut être déployée dans des environnements de cloud privé ou public (ex. Azure, AWS).
+    Adaptée aux entreprises qui virtualisent leur infrastructure réseau.
+Fonctionnalités avancées de sécurité
+    Firewalling, IDS/IPS, VPN, filtrage Web, etc.
+    Meilleure gestion des règles et logs qu’un simple pare-feu iptables/nftables.
+
+Comparé à nftables :
+
+1. Interface graphique plus intuitive
+ Stormshield offre une interface graphique qui simplifie la gestion des règles de pare-feu, par exemple VPN, et IDS/IPS.
+ Avec nftables, tout se fait en ligne de commande, ce qui peut être plus complexe à administrer.
+2. Fonctionnalités avancées intégrées 
+ Stormshield inclut un IDS/IPS (détection et prévention d’intrusions), ce qui n’est pas natif dans nftables.
+ Gestion centralisée des logs et alertes, contrairement à nftables où il faut configurer manuellement la journalisation.
+3. Sécurisation plus simple et préconfigurée 
+ Stormshield applique par défaut des bonnes pratiques de sécurité, alors que nftables demande une configuration manuelle avancée.
+ Gestion des VPN (IPSec/SSL) native dans Stormshield, alors qu’avec nftables, il faut ajouter des outils comme StrongSwan/OpenVPN.
+
+
+    Problèmes rencontrés : 
+
+Toutefois, après un certain temps, la connexion a cessé de fonctionner.
+
+    Solutions trouvées : 
+
+Face à ce problème, on a décidé de passer à un firewall FortiGate physique, en évitant l'utilisation d'une machine virtuelle et d'un switch. 
 Cela m'a permis de résoudre les problèmes de configuration et d'interface rencontrés avec la VM Stormshield.
+
+Ce qui me permettait d'avoir également des interfaces physiques dédiées avec segmentation plus efficace et d'avoir une configuration persistante donc pas besoin de tout reparamétrer à chaque session.
+
 MAQUETTE FORTIGATE :
 
 CONCLUSION
