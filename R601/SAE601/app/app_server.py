@@ -268,7 +268,7 @@ def intercept_redirected_traffic(dest_ip):
         while True:
             try:
                 data, addr = s.recvfrom(65535)
-                print(f"Intercepté {len(date)} octets depuis {addr}")
+                print(f"Intercepté {len(data)} octets depuis {addr}")
 
                 # Générer un hash du contenu pour identifier les doublons
                 packet_hash = hash(data)
@@ -298,9 +298,11 @@ def intercept_redirected_traffic(dest_ip):
                 
                 # Envoyer via ICMP
                 if is_response:
+                    print(f"Appel response")
                     send_icmp_response(dest_ip,data)
                     print(f"Réponse ICMP envoyée à {dest_ip}")
                 else:
+                    print(f"Appel packet")
                     send_icmp_packet(dest_ip, data)
                     print(f"[+] Encapsulé et envoyé à {dest_ip}")
             except Exception as e:
