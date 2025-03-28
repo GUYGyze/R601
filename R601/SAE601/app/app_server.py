@@ -170,6 +170,10 @@ def receive_icmp_handshake():
                 packet, addr = s.recvfrom(65535)
                 src_ip = addr[0]
 
+                if len(packet) >= 21:
+                    icmp_type = packet[20]
+                    print(f"Reçu paquet ICMP type {icmp_type} de {src_ip}")
+
                 hex_data = ' '.join([f'{b:02x}' for b in packet[:32]])
                 print(f"[+] Paquet ICMP brut: {hex_data}...")
                 
@@ -184,18 +188,11 @@ def receive_icmp_handshake():
                     
                 if len(payload) < 4:
                     continue
-                    
-                # Tenter d'analyser comme un paquet WireGuard
-                try:
-                    message_type = struct.unpack("!I", payload[:4])[0]
-                    if message_type in [1, 2, 3, 4]:
-                        print(f"[+] Paquet ICMP reçu de {src_ip} contenant un message WireGuard type {message_type}")
-                        # Réinjecter dans WireGuard local
-                        send_wireguard_handshake(payload)
-                        print(f"[+] Paquet réinjecté localement")
-                except:
-                    # Ce n'est pas un paquet WireGuard
-                    continue
+
+                print(f"Payload extrait: {len(payload)} octets")
+                send_wireguard_handshake(payload)
+                print(f"[+] Paquet réinjecté localement")
+
             except Exception as e:
                 print(f"[-] Erreur lors de la réception ICMP: {e}")
                 continue
@@ -266,37 +263,46 @@ def intercept_redirected_traffic(dest_ip):
         s.bind(('127.0.0.1', 51821))
         print(f"[+] Interception active: redirige vers {dest_ip}")
 
-        # Générer un hash du contenu pour identifier les doublons
-        packet_hash = hash(data)
-        
-        # Si nous avons déjà traité ce paquet, l'ignorer
-        if packet_hash in processed_packets:
-            print(f"[-] Paquet déjà traité, ignoré")
-            continue
-            
-        # Ajouter au dictionnaire des paquets traités
-        processed_packets[packet_hash] = True
+        processed_packets = {}
 
-        if len(processed_packets) > 100:
-            oldest_key = next(iter(processed_packets))
-            del processed_packets[oldest_key]
-            
         while True:
             try:
                 data, addr = s.recvfrom(65535)
-                print(f"[+] Intercepté {len(data)} octets depuis {addr}")
+                print(f"Intercepté {len(date)} octets depuis {addr}")
+
+                # Générer un hash du contenu pour identifier les doublons
+                packet_hash = hash(data)
+        
+                # Si nous avons déjà traité ce paquet, l'ignorer
+                if packet_hash in processed_packets:
+                    print(f"[-] Paquet déjà traité, ignoré")
+                    continue
+            
+                # Ajouter au dictionnaire des paquets traités
+                processed_packets[packet_hash] = True
+
+                if len(processed_packets) > 100:
+                    oldest_key = next(iter(processed_packets))
+                    del processed_packets[oldest_key]
                 
+                is_response = False
                 # Déboguer le contenu du paquet
                 if len(data) >= 4:
                     try:
                         message_type = struct.unpack("!I", data[:4])[0]
                         print(f"[+] Type de message: {message_type}")
-                    except:
-                        print("[-] Impossible d'extraire le type")
+                        if message_type in [2, 4]:
+                            is_response=True
+                    except Exception as e:
+                        print("[-] Impossible d'extraire le type {e}")
                 
                 # Envoyer via ICMP
-                send_icmp_packet(dest_ip, data)
-                print(f"[+] Encapsulé et envoyé à {dest_ip}")
+                if is_response:
+                    send_icmp_response(dest_ip,data)
+                    print(f"Réponse ICMP envoyée à {dest_ip}")
+                else:
+                    send_icmp_packet(dest_ip, data)
+                    print(f"[+] Encapsulé et envoyé à {dest_ip}")
             except Exception as e:
                 print(f"[-] Erreur d'interception: {e}")
                 continue
