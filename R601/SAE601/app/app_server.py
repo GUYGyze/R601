@@ -262,7 +262,22 @@ def intercept_redirected_traffic(dest_ip):
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
         s.bind(('127.0.0.1', 51821))
         print(f"[+] Interception active: redirige vers {dest_ip}")
+
+        # Générer un hash du contenu pour identifier les doublons
+        packet_hash = hash(data)
         
+        # Si nous avons déjà traité ce paquet, l'ignorer
+        if packet_hash in processed_packets:
+            print(f"[-] Paquet déjà traité, ignoré")
+            continue
+            
+        # Ajouter au dictionnaire des paquets traités
+        processed_packets[packet_hash] = True
+
+        if len(processed_packets) > 100:
+            oldest_key = next(iter(processed_packets))
+            del processed_packets[oldest_key]
+            
         while True:
             try:
                 data, addr = s.recvfrom(65535)
