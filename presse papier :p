@@ -1,21 +1,50 @@
+def capture_wg0_traffic(client_ip):
+    """
+    Capture le trafic sur l'interface wg0 et l'encapsule dans ICMP.
+    """
+    try:
+        # Créer un socket raw pour capturer le trafic
+        with socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(0x0003)) as s:
+            s.bind(('wg0', 0))
+            print(f"[+] Capture active sur l'interface wg0")
+            
+            while True:
+                packet = s.recv(65535)
+                # Les paquets sur wg0 sont déjà des paquets IP
+                # On doit extraire les données UDP (sauter l'en-tête IP)
+                ip_header_len = (packet[14] & 0x0F) * 4  # L'en-tête Ethernet fait 14 octets
+                protocol = packet[14+9]  # Le protocole est à l'offset 9 dans l'en-tête IP
+                
+                # Si c'est du UDP
+                if protocol == 17:  # 17 = UDP
+                    # Extraire la charge utile UDP (sauter l'en-tête UDP)
+                    udp_payload = packet[14 + ip_header_len + 8:]
+                    
+                    if len(udp_payload) > 0:
+                        print(f"[+] Trafic UDP capturé sur wg0, taille: {len(udp_payload)}")
+                        # Encapsuler dans ICMP et envoyer
+                        send_icmp_packet(client_ip, udp_payload)
+                        print(f"[+] Données encapsulées et envoyées à {client_ip}")
+    except Exception as e:
+        print(f"[-] Erreur dans capture_wg0_traffic: {e}")
+
 @app.route('/api/start_tunnel', methods=['GET'])
 def start_tunnel():
-    server_ip = request.args.get('ip')
-    if not server_ip:
-        return jsonify({"success": False, "error": "IP du serveur manquante"}), 400
+    client_ip = request.args.get('ip')
+    if not client_ip:
+        return jsonify({"success": False, "error": "IP du client manquante"}), 400
     
     try:
-        # 1. Démarrer les threads de capture
-        print(f"[+] Démarrage de la capture des handshakes ICMP pour le serveur {server_ip}")
+        # 1. Démarrer d'abord les threads de capture
+        print(f"[+] Démarrage des captures ICMP pour {client_ip}")
         
         # Thread de réception ICMP
         receive_thread = threading.Thread(target=receive_icmp_handshake)
         receive_thread.daemon = True
         receive_thread.start()
         
-        # Thread de capture et encapsulation des paquets UDP vers WireGuard
-        capture_thread = threading.Thread(target=capture_and_encapsulate_handshake, 
-                                         args=(51820, server_ip))
+        # Thread de capture et encapsulation
+        capture_thread = threading.Thread(target=capture_and_encapsulate_handshake)
         capture_thread.daemon = True
         capture_thread.start()
         
@@ -27,7 +56,7 @@ def start_tunnel():
         subprocess.run(["wg-quick", "up", WG_INTERFACE], check=True)
         
         # 4. Démarrer la capture sur l'interface wg0
-        wg0_thread = threading.Thread(target=capture_wg0_traffic, args=(server_ip,))
+        wg0_thread = threading.Thread(target=capture_wg0_traffic, args=(client_ip,))
         wg0_thread.daemon = True
         wg0_thread.start()
         
