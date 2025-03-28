@@ -159,43 +159,46 @@ def send_wireguard_handshake(handshake_data, port=51820, dest_ip='127.0.0.1'):
 
 def receive_icmp_handshake():
     """
-    Reçoit les paquets ICMP et réinjecte les payloads WireGuard.
+    Écoute les paquets ICMP et réinjecte tout payload potentiellement WireGuard.
     """
     with socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_ICMP) as s:
         s.bind(('0.0.0.0', 0))
-        print("[+] En attente de paquets ICMP WireGuard...")
+        print("[+] En attente de paquets ICMP pour WireGuard...")
 
         while True:
             try:
                 packet, addr = s.recvfrom(65535)
                 src_ip = addr[0]
-                print(f"[+] Packet ICMP reçu de {src_ip}, taille={len(packet)}")
-                
-                payload = extract_udp_from_icmp(packet)
-                print(f"Payload extrait, taille={len(payload)}")
-                
-                if len(payload) >= 4:
-                    try:
-                        message_type_be = struct.unpack("!I", payload[:4])[0]
-                        message_type_le = struct.unpack("<I", payload[:4])[0]
 
-                        is_Valid = False
-                        if message_type_be in [1, 2, 3, 4]:
-                            print(f"[+] Paquet ICMP reçu de {src_ip} contenant WireGuard type {message_type_be}")
-                            is_Valid = True
-                        elif message_type_le in [1, 2, 3, 4]:
-                            print(f"[+] Paquet ICMP reçu de {src_ip} contenant WireGuard type {message_type_le}")
-                            first_int = struct.pack("<I", message_type_le)
-                            payload = first_int + payload[4:]
-                            is_Valid = True
-                        
-                        if is_Valid:
-                            send_wireguard_handshake(payload)
-                            print(f"Paquet réinjecté localement")
-                    except Exception as e:
-                        print(f"Impossible d'extraire le type de message: {e}")
+                hex_data = ' '.join([f'{b:02x}' for b in packet[:32]])
+                print(f"[+] Paquet ICMP brut: {hex_data}...")
+                
+                # Extraire le payload
+                ip_header_length = 20
+                icmp_header_length = 8
+                payload = packet[ip_header_length + icmp_header_length:]
+
+                if len(payload) > 0:
+                    hex_payload = ' '.join([f'{b:02x}' for b in payload[:32]])
+                    print(f"[+] Payload extrait: {hex_payload}...")
+                    
+                if len(payload) < 4:
+                    continue
+                    
+                # Tenter d'analyser comme un paquet WireGuard
+                try:
+                    message_type = struct.unpack("!I", payload[:4])[0]
+                    if message_type in [1, 2, 3, 4]:
+                        print(f"[+] Paquet ICMP reçu de {src_ip} contenant un message WireGuard type {message_type}")
+                        # Réinjecter dans WireGuard local
+                        send_wireguard_handshake(payload)
+                        print(f"[+] Paquet réinjecté localement")
+                except:
+                    # Ce n'est pas un paquet WireGuard
+                    continue
             except Exception as e:
-                print(f"[-] Erreur réception ICMP: {e}")
+                print(f"[-] Erreur lors de la réception ICMP: {e}")
+                continue
 
 def start_handshake_capture():
     """
