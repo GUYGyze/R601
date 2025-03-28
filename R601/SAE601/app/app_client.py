@@ -217,12 +217,19 @@ def receive_icmp_handshake():
             try:
                 packet, addr = s.recvfrom(65535)
                 src_ip = addr[0]
+
+                hex_data = ' '.join([f'{b:02x}' for b in packet[:32]])
+                print(f"[+] Paquet ICMP brut: {hex_data}...")
                 
                 # Extraire le payload
                 ip_header_length = 20
                 icmp_header_length = 8
                 payload = packet[ip_header_length + icmp_header_length:]
-                
+
+                if len(payload) > 0:
+                    hex_payload = ' '.join([f'{b:02x}' for b in payload[:32]])
+                    print(f"[+] Payload extrait: {hex_payload}...")
+                    
                 if len(payload) < 4:
                     continue
                     
