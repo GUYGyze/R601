@@ -157,19 +157,30 @@ def capture_and_encapsulate_handshake(port=51820, server_ip=None):
                 print(f"[-] Erreur de capture: {e}")
                 continue
                     
-def intercept_redirected_traffic(server_ip):
+def intercept_redirected_traffic(dest_ip):
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
         s.bind(('127.0.0.1', 51821))
-        print("[+] Interception des paquets UDP redirigés active sur port 51821")
+        print(f"[+] Interception active: redirige vers {dest_ip}")
         
         while True:
             try:
                 data, addr = s.recvfrom(65535)
-                print(f"[+] Trafic WireGuard intercepté, taille={len(data)}")
-                # Encapsuler et envoyer en ICMP
-                send_icmp_packet(server_ip, data)
+                print(f"[+] Intercepté {len(data)} octets depuis {addr}")
+                
+                # Déboguer le contenu du paquet
+                if len(data) >= 4:
+                    try:
+                        message_type = struct.unpack("!I", data[:4])[0]
+                        print(f"[+] Type de message: {message_type}")
+                    except:
+                        print("[-] Impossible d'extraire le type")
+                
+                # Envoyer via ICMP
+                send_icmp_packet(dest_ip, data)
+                print(f"[+] Encapsulé et envoyé à {dest_ip}")
             except Exception as e:
                 print(f"[-] Erreur d'interception: {e}")
+                continue
 
 def send_wireguard_handshake(handshake_data, port=51820, dest_ip='127.0.0.1'):
     """
@@ -241,6 +252,25 @@ def forward_udp_to_application(udp_data, dest_ip='127.0.0.1', dest_port=12345):
 ### Fonctions Désencapsulation ICMP ###
 #######################################
 
+def send_icmp_response(dest_ip, udp_data):
+    # Pour les réponses, utilisez le type 0 (echo reply)
+    icmp_type = 0  # Echo reply
+    icmp_code = 0
+    checksum_value = 0
+    identifier = random.randint(0, 65535)
+    sequence_number = random.randint(0, 65535)
+    
+    header = struct.pack('!BBHHH', icmp_type, icmp_code, checksum_value, identifier, sequence_number)
+    payload = udp_data
+    checksum_value = checksum(header + payload)
+    header = struct.pack('!BBHHH', icmp_type, icmp_code, checksum_value, identifier, sequence_number)
+    
+    packet = header + payload
+    
+    with socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_ICMP) as s:
+        s.sendto(packet, (dest_ip, 0))
+        print(f"[+] Réponse ICMP envoyée à {dest_ip}, taille={len(packet)}")
+        
 def extract_udp_from_icmp(packet):
     """
     Extrait le payload UDP encapsulé dans un paquet ICMP.
@@ -330,6 +360,19 @@ def send_udp_packet(dest_ip, udp_data):
 ########################
 ########################
 
+def setup_iptables_redirect():
+    try:
+        # Supprimer d'anciennes règles si elles existent
+        subprocess.run("iptables -t nat -D OUTPUT -p udp --dport 51820 -j REDIRECT --to-port 51821", 
+                       shell=True, stderr=subprocess.DEVNULL)
+    except:
+        pass
+        
+    # Ajouter la nouvelle règle
+    subprocess.run("iptables -t nat -A OUTPUT -p udp --dport 51820 -j REDIRECT --to-port 51821", 
+                   shell=True, check=True)
+    print("[+] Redirection iptables configurée")
+    
 # Génération des clés publiques et privées
 def generate_keys():
     private_key = subprocess.check_output("wg genkey", shell=True).decode('utf-8').strip()
@@ -457,6 +500,8 @@ def start_tunnel():
     try:
         # 1. Démarrer les threads de capture
         print(f"[+] Démarrage de la capture des handshakes ICMP pour le serveur {server_ip}")
+        
+        setup_iptables_redirect()  # Configurer iptables avant de démarrer les threads
 
         debug_thread = threading.Thread(target=debug_capture_all_udp)
         debug_thread.daemon = True
