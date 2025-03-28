@@ -1,28 +1,42 @@
-def debug_capture_all_udp(port=51820):
-    """
-    Capture tout trafic UDP vers/depuis le port WireGuard pour débogage.
-    """
-    with socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_UDP) as s:
-        s.bind(('0.0.0.0', 0))
-        print(f"[DEBUG] Surveillance de TOUT le trafic UDP sur port {port}")
+def intercept_redirected_traffic(server_ip):
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+        s.bind(('127.0.0.1', 51821))
+        print("[+] Interception des paquets UDP redirigés active sur port 51821")
         
         while True:
             try:
-                packet, addr = s.recvfrom(65535)
-                # Extraire les infos de l'en-tête IP
-                ip_header = packet[:20]
-                src_ip = socket.inet_ntoa(ip_header[12:16])
-                dst_ip = socket.inet_ntoa(ip_header[16:20])
-                
-                # Extraire les ports de l'en-tête UDP
-                udp_header = packet[20:28]
-                src_port, dst_port = struct.unpack('!HH', udp_header[:4])
-                
-                if src_port == port or dst_port == port:
-                    print(f"[DEBUG] UDP {src_ip}:{src_port} -> {dst_ip}:{dst_port}, taille={len(packet)-28}")
+                data, addr = s.recvfrom(65535)
+                print(f"[+] Trafic WireGuard intercepté, taille={len(data)}")
+                # Encapsuler et envoyer en ICMP
+                send_icmp_packet(server_ip, data)
             except Exception as e:
-                print(f"[DEBUG] Erreur capture: {e}")
+                print(f"[-] Erreur d'interception: {e}")
 
-debug_thread = threading.Thread(target=debug_capture_all_udp)
-debug_thread.daemon = True
-debug_thread.start()
+# Dans la fonction start_tunnel
+intercept_thread = threading.Thread(target=intercept_redirected_traffic, args=(server_ip,))
+intercept_thread.daemon = True
+intercept_thread.start()
+
+# Dans la fonction receive_icmp_handshake
+while True:
+    try:
+        packet, addr = s.recvfrom(65535)
+        src_ip = addr[0]
+        print(f"[+] Paquet ICMP reçu de {src_ip}, taille={len(packet)}")
+        
+        payload = extract_udp_from_icmp(packet)
+        print(f"[+] Payload extrait, taille={len(payload)}")
+        
+        # Essayer d'analyser
+        if len(payload) >= 4:
+            try:
+                message_type = struct.unpack("!I", payload[:4])[0]
+                print(f"[+] Message type détecté: {message_type}")
+            except:
+                print("[-] Impossible d'extraire le type de message")
+        
+        # Réinjecter dans WireGuard local
+        send_wireguard_handshake(payload)
+        print(f"[+] Payload réinjecté localement")
+    except Exception as e:
+        print(f"[-] Erreur réception ICMP: {e}")
